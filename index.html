@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
-    <title>IronTracker - Carnet & Analyse Musculation Local</title>
+    <title>IronTracker - Carnet de musculation</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -29,6 +29,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         /* Personnalisation de la barre de défilement */
         ::-webkit-scrollbar {
@@ -81,6 +82,29 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col">
 
+    <section id="auth-gate" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950 p-4" aria-modal="true" role="dialog" aria-labelledby="auth-title">
+        <form id="auth-form" data-mode="signin" class="w-full max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+            <div class="text-center">
+                <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-indigo-600 text-xl text-slate-950">
+                    <i class="fa-solid fa-dumbbell"></i>
+                </div>
+                <h2 id="auth-title" class="text-xl font-bold text-white">Connexion à IronTracker</h2>
+                <p class="mt-2 text-sm text-slate-400">Connecte-toi pour retrouver tes données sur tes appareils.</p>
+            </div>
+            <label class="block text-sm text-slate-300" for="auth-email">
+                Adresse e-mail
+                <input id="auth-email" type="email" autocomplete="email" required class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+            </label>
+            <label class="block text-sm text-slate-300" for="auth-password">
+                Mot de passe
+                <input id="auth-password" type="password" autocomplete="current-password" minlength="8" required class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+            </label>
+            <button id="auth-submit" type="submit" class="w-full rounded-lg bg-emerald-500 px-4 py-2 font-bold text-slate-950 hover:bg-emerald-400">Se connecter</button>
+            <button id="auth-mode-toggle" type="button" class="w-full text-sm text-indigo-300 hover:text-indigo-200">Créer un compte</button>
+            <p id="auth-status" class="min-h-5 text-center text-sm text-slate-400" role="status" aria-live="polite"></p>
+        </form>
+    </section>
+
     <!-- Barre de Navigation Supérieure -->
     <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-lg">
         <div class="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -89,9 +113,14 @@
                     <i class="fa-solid fa-dumbbell text-slate-950"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-indigo-400 bg-clip-text text-transparent">IronTracker Local</h1>
-                    <p class="text-xs text-slate-400 hidden sm:block">Carnet & Analyse de Performances en Local</p>
+                    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-indigo-400 bg-clip-text text-transparent">IronTracker</h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">Carnet & Analyse de Performances</p>
                 </div>
+            </div>
+            <div id="account-controls" class="hidden items-center justify-center gap-3 text-xs text-slate-400 xl:justify-start">
+                <span id="account-email" class="max-w-48 truncate"></span>
+                <span id="sync-status" role="status" aria-live="polite">Synchronisé</span>
+                <button type="button" onclick="signOutFromApp()" class="rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-300 hover:bg-slate-800">Déconnexion</button>
             </div>
 
             <!-- Onglets de Navigation -->
@@ -615,6 +644,19 @@
         const removedExercisesStorageKey = 'iron_tracker_removed_exercises';
         const customFormatsStorageKey = 'iron_tracker_custom_formats';
         const defaultFormats = ['x1', 'x2', 'x3', 'x5', 'x6'];
+        const supabaseClient = window.supabase && typeof window.supabase.createClient === 'function'
+            ? window.supabase.createClient(
+                'https://tduqtqwgzxtggsmwoaiu.supabase.co',
+                'sb_publishable_mNENm6IgI_OapyjaUFhQhA_sf-4mP3Q'
+            )
+            : null;
+        let activeUserId = null;
+        let appInitialized = false;
+        let isHydratingCloud = false;
+        let cloudSyncTimer = null;
+        let cloudSaveQueue = Promise.resolve();
+        let appInitializationPromise = null;
+        let appInitializationUserId = null;
 
         const exerciseCatalog = [
             "Développé couché bench",
@@ -742,12 +784,10 @@
             { id: 212, date: getRelativeDate(2), type: "Push", exercise: "Développé couché", setNumber: 3, weight: 95, reps: 4, rest: 150, notes: "Formidable !" }
         ];
 
-        // Initialisation de l'application
-        window.addEventListener('DOMContentLoaded', () => {
+        function initializeAppInterface() {
             // Définir la date du jour sur le formulaire
             document.getElementById('input-date').value = new Date().toISOString().split('T')[0];
             
-            // Charger les données du localStorage
             loadData();
             loadCustomExercises();
             loadRemovedExercises();
@@ -780,6 +820,240 @@
             // Paramètres globaux Chart.js
             Chart.defaults.color = '#94a3b8';
             Chart.defaults.font.family = 'sans-serif';
+            appInitialized = true;
+        }
+
+        function setAuthStatus(message, isError = false) {
+            const status = document.getElementById('auth-status');
+            status.textContent = message;
+            status.className = `min-h-5 text-center text-sm ${isError ? 'text-rose-300' : 'text-slate-400'}`;
+        }
+
+        function setAuthMode(mode) {
+            const isSignUp = mode === 'signup';
+            document.getElementById('auth-title').textContent = isSignUp ? 'Créer un compte IronTracker' : 'Connexion à IronTracker';
+            document.getElementById('auth-submit').textContent = isSignUp ? 'Créer mon compte' : 'Se connecter';
+            document.getElementById('auth-mode-toggle').textContent = isSignUp ? 'J’ai déjà un compte' : 'Créer un compte';
+            document.getElementById('auth-password').autocomplete = isSignUp ? 'new-password' : 'current-password';
+            document.getElementById('auth-form').dataset.mode = mode;
+            setAuthStatus('');
+        }
+
+        function displayStartupError(error) {
+            console.error('Échec du chargement des données du compte', error);
+            setAuthStatus(`Impossible de charger le compte : ${error.message || error}. Actualise la page pour réessayer.`, true);
+        }
+
+        function clearLocalAccountData() {
+            localStorage.removeItem('iron_tracker_local_db');
+            localStorage.removeItem(customExercisesStorageKey);
+            localStorage.removeItem(removedExercisesStorageKey);
+            localStorage.removeItem(customFormatsStorageKey);
+            workoutData = [];
+            customExercises = [];
+            removedExercises = [];
+            customFormats = [];
+            appInitialized = false;
+        }
+
+        function handleAuthSession(session) {
+            if (!session) {
+                if (activeUserId) clearLocalAccountData();
+                activeUserId = null;
+                document.getElementById('account-controls').classList.add('hidden');
+                document.getElementById('auth-gate').classList.remove('hidden');
+                setAuthStatus('');
+                return;
+            }
+
+            initializeAuthenticatedApp(session.user).catch(displayStartupError);
+        }
+
+        async function initializeAuthenticatedApp(user) {
+            if (activeUserId === user.id && appInitialized) return;
+            if (appInitializationPromise && appInitializationUserId === user.id) return appInitializationPromise;
+
+            appInitializationUserId = user.id;
+            appInitializationPromise = (async () => {
+                isHydratingCloud = true;
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('iron_tracker_data')
+                        .select('payload')
+                        .eq('user_id', user.id)
+                        .maybeSingle();
+                    if (error) throw error;
+
+                    if (data) {
+                        const payload = data.payload;
+                        if (!payload || !Array.isArray(payload.workoutData) ||
+                            !Array.isArray(payload.customExercises) ||
+                            !Array.isArray(payload.removedExercises) ||
+                            !Array.isArray(payload.customFormats)) {
+                            throw new Error('Les données cloud ont un format invalide.');
+                        }
+                        localStorage.setItem('iron_tracker_local_db', JSON.stringify(payload.workoutData));
+                        localStorage.setItem(customExercisesStorageKey, JSON.stringify(payload.customExercises));
+                        localStorage.setItem(removedExercisesStorageKey, JSON.stringify(payload.removedExercises));
+                        localStorage.setItem(customFormatsStorageKey, JSON.stringify(payload.customFormats));
+                    }
+
+                    if (!appInitialized) initializeAppInterface();
+                    if (!data) await writeCloudSnapshot(user.id);
+                    activeUserId = user.id;
+
+                    document.getElementById('account-email').textContent = user.email || '';
+                    document.getElementById('sync-status').textContent = 'Synchronisé';
+                    document.getElementById('account-controls').classList.remove('hidden');
+                    document.getElementById('auth-gate').classList.add('hidden');
+                    setAuthStatus('');
+                } finally {
+                    isHydratingCloud = false;
+                }
+            })();
+
+            try {
+                await appInitializationPromise;
+            } finally {
+                appInitializationPromise = null;
+                appInitializationUserId = null;
+            }
+        }
+
+        function createCloudPayload() {
+            return {
+                version: 1,
+                workoutData,
+                customExercises,
+                removedExercises,
+                customFormats
+            };
+        }
+
+        async function writeCloudSnapshot(userId) {
+            const { error } = await supabaseClient
+                .from('iron_tracker_data')
+                .upsert({
+                    user_id: userId,
+                    payload: createCloudPayload(),
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
+            if (error) throw error;
+        }
+
+        function handleCloudSyncFailure(error) {
+            console.error('Échec de la synchronisation cloud', error);
+            document.getElementById('sync-status').textContent = 'Erreur de synchronisation';
+            showToast(`Synchronisation impossible : ${error.message || error}`, 'error');
+        }
+
+        function enqueueCloudSave() {
+            const userId = activeUserId;
+            if (!userId) return Promise.resolve();
+            const payload = createCloudPayload();
+            const save = cloudSaveQueue.catch(() => {}).then(async () => {
+                if (userId !== activeUserId) return;
+                const { error } = await supabaseClient
+                    .from('iron_tracker_data')
+                    .upsert({
+                        user_id: userId,
+                        payload,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'user_id' });
+                if (error) throw error;
+                if (userId === activeUserId) {
+                    document.getElementById('sync-status').textContent = 'Synchronisé';
+                }
+            });
+            cloudSaveQueue = save;
+            return save;
+        }
+
+        function scheduleCloudSync() {
+            if (!activeUserId || isHydratingCloud) return;
+            document.getElementById('sync-status').textContent = 'Synchronisation…';
+            clearTimeout(cloudSyncTimer);
+            cloudSyncTimer = setTimeout(() => {
+                cloudSyncTimer = null;
+                enqueueCloudSave().catch(handleCloudSyncFailure);
+            }, 600);
+        }
+
+        async function flushCloudSync() {
+            clearTimeout(cloudSyncTimer);
+            cloudSyncTimer = null;
+            if (activeUserId) await enqueueCloudSave();
+            await cloudSaveQueue;
+        }
+
+        async function signOutFromApp() {
+            try {
+                await flushCloudSync();
+                const { error } = await supabaseClient.auth.signOut();
+                if (error) throw error;
+            } catch (error) {
+                showToast(`Déconnexion impossible : ${error.message || error}`, 'error');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('auth-mode-toggle').addEventListener('click', () => {
+                const currentMode = document.getElementById('auth-form').dataset.mode || 'signin';
+                setAuthMode(currentMode === 'signin' ? 'signup' : 'signin');
+            });
+
+            document.getElementById('auth-form').addEventListener('submit', async event => {
+                event.preventDefault();
+                if (!supabaseClient) {
+                    setAuthStatus('Le service de connexion n’a pas pu être chargé. Vérifie ta connexion Internet puis actualise la page.', true);
+                    return;
+                }
+
+                const email = document.getElementById('auth-email').value.trim();
+                const password = document.getElementById('auth-password').value;
+                const isSignUp = document.getElementById('auth-form').dataset.mode === 'signup';
+                const submitButton = document.getElementById('auth-submit');
+                submitButton.disabled = true;
+                setAuthStatus(isSignUp ? 'Création du compte…' : 'Connexion…');
+                try {
+                    const result = isSignUp
+                        ? await supabaseClient.auth.signUp({ email, password })
+                        : await supabaseClient.auth.signInWithPassword({ email, password });
+                    if (result.error) throw result.error;
+                    if (result.data.session) {
+                        await initializeAuthenticatedApp(result.data.session.user);
+                    } else {
+                        setAuthMode('signin');
+                        setAuthStatus('Compte créé. Vérifie ta boîte e-mail pour confirmer ton adresse, puis connecte-toi.');
+                    }
+                } catch (error) {
+                    setAuthStatus(error.message || 'Échec de la connexion.', true);
+                } finally {
+                    submitButton.disabled = false;
+                }
+            });
+
+            if (!supabaseClient) {
+                setAuthStatus('Le service de connexion n’a pas pu être chargé. Vérifie ta connexion Internet puis actualise la page.', true);
+                return;
+            }
+
+            supabaseClient.auth.onAuthStateChange((_event, session) => {
+                setTimeout(() => handleAuthSession(session), 0);
+            });
+
+            const { data, error } = await supabaseClient.auth.getSession();
+            if (error) {
+                displayStartupError(error);
+                return;
+            }
+            if (data.session) {
+                try {
+                    await initializeAuthenticatedApp(data.session.user);
+                } catch (initializationError) {
+                    displayStartupError(initializationError);
+                }
+            }
         });
 
         // Gestion des Onglets
@@ -814,6 +1088,7 @@
         // Sauvegarde et Chargement LocalStorage
         function saveData() {
             localStorage.setItem('iron_tracker_local_db', JSON.stringify(workoutData));
+            scheduleCloudSync();
         }
 
         function loadData() {
@@ -959,6 +1234,7 @@
             }
 
             customFormats = updatedFormats;
+            scheduleCloudSync();
             populateFormatOptions();
             return true;
         }
@@ -1025,6 +1301,7 @@
                     return;
                 }
                 removedExercises = updatedRemovedExercises;
+                scheduleCloudSync();
                 populateExerciseDropdowns();
                 document.getElementById('input-exercise').value = removedExercise;
                 showToast("Exercice réactivé dans les suggestions !");
@@ -1046,6 +1323,7 @@
             }
 
             customExercises = updatedExercises;
+            scheduleCloudSync();
             populateExerciseDropdowns();
             document.getElementById('input-exercise').value = exercise;
             showToast("Exercice ajouté aux suggestions !");
@@ -1081,6 +1359,7 @@
             }
 
             removedExercises = updatedRemovedExercises;
+            scheduleCloudSync();
             populateExerciseDropdowns();
             document.getElementById('input-exercise').value = '';
             showToast("Exercice supprimé des suggestions");
