@@ -157,6 +157,9 @@
                     <button onclick="loadDemoData()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/60 transition flex items-center gap-1.5">
                         <i class="fa-solid fa-wand-magic-sparkles"></i> Données Démo
                     </button>
+                    <button onclick="openSamsungNoteConverter()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-violet-950/60 hover:bg-violet-900/80 text-violet-300 border border-violet-800/60 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Convertir Note Samsung
+                    </button>
                     <button onclick="exportDataJSON()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
                         <i class="fa-solid fa-upload text-emerald-400"></i> Exporter JSON
                     </button>
@@ -293,8 +296,8 @@
                     <div class="flex flex-wrap items-center gap-2">
                         <h3 class="font-semibold text-white">Tableau des Performances</h3>
                         <span id="row-count-badge" class="bg-slate-800 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono border border-slate-700">0 séries</span>
-                        <button id="delete-last-csv-import" type="button" onclick="deleteLastCsvImport()" disabled title="Aucun import CSV à supprimer" aria-label="Supprimer le dernier import CSV" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 transition disabled:cursor-not-allowed disabled:opacity-40">
-                            <i class="fa-solid fa-trash-can"></i> Supprimer le dernier import CSV
+                        <button id="delete-last-csv-import" type="button" onclick="deleteLastCsvImport()" disabled title="Aucun import à supprimer" aria-label="Supprimer le dernier import" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 transition disabled:cursor-not-allowed disabled:opacity-40">
+                            <i class="fa-solid fa-trash-can"></i> Supprimer le dernier import
                         </button>
                     </div>
 
@@ -600,6 +603,91 @@
         </section>
     </main>
 
+    <div id="export-period-dialog" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="export-period-title">
+        <div class="w-full max-w-md space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <div>
+                <h2 id="export-period-title" class="text-lg font-bold text-white">Choisir la période d’export</h2>
+                <p class="mt-1 text-sm text-slate-400">Les dates de début et de fin sont incluses.</p>
+            </div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                    <label for="export-start-date" class="mb-1 block text-xs font-medium text-slate-400">Du</label>
+                    <input type="date" id="export-start-date" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none">
+                </div>
+                <div>
+                    <label for="export-end-date" class="mb-1 block text-xs font-medium text-slate-400">Au</label>
+                    <input type="date" id="export-end-date" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none">
+                </div>
+            </div>
+            <p id="export-period-status" class="min-h-5 text-sm text-rose-300" role="status" aria-live="polite"></p>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeExportPeriodDialog()" class="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">Annuler</button>
+                <button type="button" onclick="confirmDataExport()" class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">Exporter</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="samsung-exercise-resolution" class="hidden fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="samsung-exercise-resolution-title">
+        <div class="w-full max-w-2xl space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <div>
+                <h2 id="samsung-exercise-resolution-title" class="text-lg font-bold text-white">Associer les exercices</h2>
+                <p class="mt-1 text-sm text-slate-400">Certains noms ne sont pas dans IronTracker. Choisis un exercice existant ou crée-en un.</p>
+            </div>
+            <div id="samsung-exercise-resolution-list" class="max-h-[55vh] space-y-3 overflow-y-auto"></div>
+            <p id="samsung-exercise-resolution-status" class="min-h-5 text-sm text-rose-300" role="status" aria-live="polite"></p>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="cancelSamsungExerciseResolution()" class="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">Annuler</button>
+                <button type="button" onclick="confirmSamsungExerciseResolution()" class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">Continuer l’import</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="samsung-bodyweight-dialog" class="hidden fixed inset-0 z-[96] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="samsung-bodyweight-title">
+        <div class="w-full max-w-md space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <div>
+                <h2 id="samsung-bodyweight-title" class="text-lg font-bold text-white">Poids de corps</h2>
+                <p class="mt-1 text-sm text-slate-400">Une ou plusieurs séries de Dips ou Tractions n’indiquent pas de charge. Saisis ton poids de corps en kg; il sera utilisé pour ces séries.</p>
+            </div>
+            <div>
+                <label for="samsung-bodyweight-input" class="mb-1 block text-xs font-medium text-slate-300">Poids de corps (kg)</label>
+                <input id="samsung-bodyweight-input" type="number" min="0.1" step="0.1" inputmode="decimal" placeholder="80" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none">
+            </div>
+            <p id="samsung-bodyweight-status" class="min-h-5 text-sm text-rose-300" role="status" aria-live="polite"></p>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="cancelSamsungBodyweightPrompt()" class="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">Annuler</button>
+                <button type="button" onclick="confirmSamsungBodyweight()" class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">Continuer l’import</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="samsung-note-converter" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="samsung-note-title">
+        <div class="w-full max-w-3xl space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h2 id="samsung-note-title" class="text-lg font-bold text-white">Convertir une note Samsung</h2>
+                    <p class="mt-1 text-sm text-slate-400">Colle le texte d’une séance pour ajouter directement ses séries au tableau.</p>
+                </div>
+                <button type="button" onclick="closeSamsungNoteConverter()" aria-label="Fermer" class="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="rounded-lg border border-slate-800 bg-slate-950/70 p-3 text-xs text-slate-400">
+                Indique la date/séance au début de chaque séance (ex. <code class="text-emerald-300">21/11/2026 Leg</code>) : elle s’applique aux exercices suivants jusqu’à la prochaine ligne date/séance. Tu peux coller plusieurs séances à la fois. Les commentaires commencent par un tiret; les parenthèses dans un titre deviennent une remarque sur sa première série. Tout texte ajouté à la fin d’une ligne de série va dans la remarque de cette série uniquement. Un RPE en intervalle, comme <code class="text-emerald-300">rpe 7-8</code>, est importé avec sa valeur la plus élevée. Pour un superset, commence la première ligne par <code class="text-emerald-300">Superset :</code> puis écris les exercices concernés sans ligne vide entre eux. Si le repos d’un exercice suivant est omis, celui du même numéro de série dans le premier exercice du superset est repris. Les lignes de séries, par exemple <code class="text-emerald-300">14 x 20 1m15</code>, peuvent omettre le repos et le RPE. Pour les Dips et les Tractions, une charge omise déclenche une demande de poids de corps. Dans le titre, <code class="text-emerald-300">1rm</code>, <code class="text-emerald-300">x1</code> ou <code class="text-emerald-300">single</code> indiquent Force x1; une programmation telle que <code class="text-emerald-300">3x3</code> ou <code class="text-emerald-300">4x5</code> indique le format correspondant (x3 ou x5, ainsi que les autres formats disponibles). Les exercices sans marqueur de force, et les séries de plus de 6 répétitions, sont classés Body.
+            </div>
+            <div>
+                <label for="samsung-note-city" class="mb-1 block text-xs font-medium text-slate-300">Ville</label>
+                <input id="samsung-note-city" type="text" list="city-list" required autocomplete="off" placeholder="Choisir une ville ou en saisir une nouvelle" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none">
+                <p class="mt-1 text-xs text-slate-500">Choisis une ville déjà utilisée ou saisis-en une nouvelle; elle sera appliquée à toutes les séances de ce collage et apparaîtra dans les suggestions après l’import.</p>
+            </div>
+            <textarea id="samsung-note-input" rows="12" placeholder="21/11/2026 Leg&#10;Squat 1rm&#10;- prise plus serrée&#10;14 x 20 1m15&#10;1 x 100 2m30 rpe 3" class="w-full resize-y rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-white focus:border-emerald-500 focus:outline-none"></textarea>
+            <p id="samsung-note-status" class="min-h-5 text-sm text-slate-400" role="status" aria-live="polite"></p>
+            <div class="flex flex-wrap justify-end gap-2">
+                <button type="button" onclick="closeSamsungNoteConverter()" class="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">Fermer</button>
+                <button type="button" onclick="importSamsungNoteText()" class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">Importer dans le tableau</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Progression des imports et exports -->
     <div id="progress-overlay" class="hidden fixed inset-0 z-[100] items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md" role="status" aria-live="polite" aria-hidden="true">
         <div class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
@@ -658,6 +746,8 @@
         let removedExercises = [];
         let customFormats = [];
         let exerciseActionMode = null;
+        let pendingExportFormat = null;
+        let pendingSamsungImport = null;
         const customExercisesStorageKey = 'iron_tracker_custom_exercises';
         const removedExercisesStorageKey = 'iron_tracker_removed_exercises';
         const customFormatsStorageKey = 'iron_tracker_custom_formats';
@@ -1658,19 +1748,19 @@
         function deleteLastCsvImport() {
             const lastImportEntries = workoutData.filter(item => item.isLastCsvImport);
             if (!lastImportEntries.length) {
-                showToast("Aucun import CSV à supprimer", "info");
+                showToast("Aucun import à supprimer", "info");
                 return;
             }
 
             const count = lastImportEntries.length;
-            if (!window.confirm(`Supprimer uniquement les ${count} série(s) du dernier import CSV ? Les autres données seront conservées.`)) return;
+            if (!window.confirm(`Supprimer uniquement les ${count} série(s) du dernier import ? Les autres données seront conservées.`)) return;
 
             workoutData = workoutData.filter(item => !item.isLastCsvImport);
             saveData();
             currentTablePage = 1;
             renderTable();
             populateExerciseDropdowns();
-            showToast(`${count} série(s) du dernier import CSV supprimée(s).`, "info");
+            showToast(`${count} série(s) du dernier import supprimée(s).`, "info");
         }
 
         // Édition Inline Directe
@@ -1891,8 +1981,8 @@
             const deleteLastCsvImportButton = document.getElementById('delete-last-csv-import');
             deleteLastCsvImportButton.disabled = lastCsvImportCount === 0;
             deleteLastCsvImportButton.title = lastCsvImportCount
-                ? `Supprimer les ${lastCsvImportCount} séries du dernier import CSV`
-                : "Aucun import CSV à supprimer";
+                ? `Supprimer les ${lastCsvImportCount} séries du dernier import`
+                : "Aucun import à supprimer";
             tablePageCount = Math.max(1, Math.ceil(filtered.length / tablePageSize));
             currentTablePage = Math.max(1, Math.min(currentTablePage, tablePageCount));
             const pageInput = document.getElementById('table-page-input');
@@ -1973,16 +2063,18 @@
             }
         }
 
-        function populateExerciseDropdowns() {
-            const exercises = [...new Set(workoutData.map(item => item.exercise))]
-                .filter(Boolean)
-                .sort((a, b) => a.localeCompare(b, 'fr'));
-            
-            const datalist = document.getElementById('exercise-list');
+        function getAvailableExerciseNames() {
             const removedExerciseNames = new Set(removedExercises.map(exercise => exercise.toLocaleLowerCase('fr')));
-            const exerciseOptions = [...new Set([...exerciseCatalog, ...customExercises, ...exercises])]
+            return [...new Set([...exerciseCatalog, ...customExercises, ...workoutData.map(item => item.exercise)])]
+                .filter(Boolean)
+                .map(exercise => exercise.trim())
                 .filter(exercise => !removedExerciseNames.has(exercise.toLocaleLowerCase('fr')))
                 .sort((a, b) => a.localeCompare(b, 'fr'));
+        }
+
+        function populateExerciseDropdowns() {
+            const datalist = document.getElementById('exercise-list');
+            const exerciseOptions = getAvailableExerciseNames();
             datalist.innerHTML = exerciseOptions.map(ex => `<option value="${escapeHtml(ex)}">`).join('');
 
             const cities = [...new Set(workoutData
@@ -2623,28 +2715,65 @@
             return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
         }
 
-        // Export JSON
-        function exportDataJSON() {
-            const filename = `irontracker_export_${getExportTimestamp()}.json`;
-            downloadFileWithProgress(
-                filename,
-                () => JSON.stringify(workoutData.map(stripCsvImportMarker), null, 2),
-                "application/json;charset=utf-8",
-                "Fichier JSON exporté !"
-            );
-        }
-
-        // Export CSV
-        function exportDataCSV() {
+        function openExportPeriodDialog(format) {
             if (!workoutData.length) {
                 showToast("Aucune donnée à exporter", "info");
                 return;
             }
 
-            const filename = `irontracker_export_${getExportTimestamp()}.csv`;
+            const dates = workoutData.map(entry => entry.date).filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
+            if (!dates.length) {
+                showToast("Aucune donnée datée à exporter", "info");
+                return;
+            }
+
+            pendingExportFormat = format;
+            document.getElementById('export-start-date').value = dates[0];
+            document.getElementById('export-end-date').value = dates[dates.length - 1];
+            document.getElementById('export-period-status').textContent = '';
+            document.getElementById('export-period-dialog').classList.remove('hidden');
+        }
+
+        function closeExportPeriodDialog() {
+            document.getElementById('export-period-dialog').classList.add('hidden');
+            pendingExportFormat = null;
+        }
+
+        function confirmDataExport() {
+            const startDate = document.getElementById('export-start-date').value;
+            const endDate = document.getElementById('export-end-date').value;
+            const status = document.getElementById('export-period-status');
+            if (!startDate || !endDate) {
+                status.textContent = 'Sélectionne une date de début et une date de fin.';
+                return;
+            }
+            if (startDate > endDate) {
+                status.textContent = 'La date de début doit être antérieure ou égale à la date de fin.';
+                return;
+            }
+
+            const entries = workoutData.filter(entry => entry.date >= startDate && entry.date <= endDate);
+            if (!entries.length) {
+                status.textContent = 'Aucune série ne correspond à cette période.';
+                return;
+            }
+
+            const format = pendingExportFormat;
+            const filename = `irontracker_export_${startDate}_au_${endDate}_${getExportTimestamp()}.${format}`;
+            closeExportPeriodDialog();
+            if (format === 'json') {
+                downloadFileWithProgress(
+                    filename,
+                    () => JSON.stringify(entries.map(stripCsvImportMarker), null, 2),
+                    "application/json;charset=utf-8",
+                    "Fichier JSON exporté !"
+                );
+                return;
+            }
+
             downloadFileWithProgress(filename, () => {
                 const headers = ["Date", "Ville", "Séance", "Objectif", "Format", "N°_Exercice", "Exercice", "Serie", "Reps", "Charge_kg", "RPE", "Repos_sec", "Remarques"];
-                const rows = workoutData.map(d => [
+                const rows = entries.map(d => [
                     d.date,
                     `"${(d.city || '').replace(/"/g, '""')}"`,
                     `"${d.type}"`,
@@ -2661,6 +2790,16 @@
                 ]);
                 return [headers.join(","), ...rows.map(row => row.join(","))].join("\n");
             }, "text/csv;charset=utf-8", "Fichier CSV exporté !");
+        }
+
+        // Export JSON
+        function exportDataJSON() {
+            openExportPeriodDialog('json');
+        }
+
+        // Export CSV
+        function exportDataCSV() {
+            openExportPeriodDialog('csv');
         }
 
         function parseCsvDocument(content) {
@@ -2765,6 +2904,573 @@
             if (!normalized) return fallback;
             const number = Number(normalized);
             return Number.isFinite(number) ? number : fallback;
+        }
+
+        function parseSamsungRestSeconds(value) {
+            const text = String(value || '').trim().toLowerCase();
+            let match = text.match(/^(\d+)\s*(?:min|m|minutes?)(?:\s*(\d{1,2})\s*(?:s|sec|secondes?)?)?$/i);
+            if (match) return Number(match[1]) * 60 + Number(match[2] || 0);
+
+            match = text.match(/^(\d+):(\d{1,2})$/);
+            if (match) return Number(match[1]) * 60 + Number(match[2]);
+
+            match = text.match(/^(\d+)\s*(?:s|sec|secondes?)$/i);
+            return match ? Number(match[1]) : null;
+        }
+
+        function parseSamsungSetLine(line) {
+            const text = String(line);
+            const match = text.match(/^\s*(\d+)(?:\s*[x×]\s*(\d+(?:[.,]\d+)?)?)?(?:\s+(.*?))?\s*$/i);
+            if (!match) return null;
+
+            const reps = parseInt(match[1], 10);
+            const weight = match[2] === undefined ? null : parseImportedNumber(match[2], NaN);
+            if (!Number.isInteger(reps) || reps < 1 ||
+                (weight !== null && (!Number.isFinite(weight) || weight < 0))) {
+                throw new Error('répétitions ou charge invalide');
+            }
+
+            let tail = String(match[3] || '').trim();
+            let rpe = '';
+            const rpeMatch = tail.match(/\brpe\s*[:=]?\s*(\d+(?:[.,]\d+)?)(?:\s*[-–]\s*(\d+(?:[.,]\d+)?))?/i);
+            if (rpeMatch) {
+                const rpeStart = parseImportedNumber(rpeMatch[1], NaN);
+                const rpeEnd = rpeMatch[2] ? parseImportedNumber(rpeMatch[2], NaN) : rpeStart;
+                if (!Number.isFinite(rpeStart) || !Number.isFinite(rpeEnd) ||
+                    rpeStart < 0 || rpeStart > 10 || rpeEnd < 0 || rpeEnd > 10) {
+                    throw new Error('RPE invalide (valeur attendue entre 0 et 10)');
+                }
+                rpe = String(Math.max(rpeStart, rpeEnd));
+                tail = tail.replace(rpeMatch[0], '').trim();
+            }
+
+            let rest = '';
+            const restMatch = tail.match(/(\d+\s*(?:min|m|minutes?)(?:\s*\d{1,2}\s*(?:s|sec|secondes?)?)?|\d+:\d{1,2}|\d+\s*(?:s|sec|secondes?))/i);
+            if (restMatch) {
+                const restSeconds = parseSamsungRestSeconds(restMatch[0]);
+                if (restSeconds === null) throw new Error(`repos non reconnu : « ${restMatch[0]} »`);
+                rest = String(restSeconds);
+                tail = tail.replace(restMatch[0], '').trim();
+            }
+            if (!restMatch && weight === null && tail && !/^\s*\d+\s*[x×]/.test(text) &&
+                !rpe && /^rm\b/i.test(tail)) {
+                return null;
+            }
+
+            const notes = tail
+                .replace(/^[,;:]\s*/, '')
+                .replace(/^\((.*)\)$/s, '$1')
+                .trim();
+
+            return { reps, weight, rest, rpe, notes };
+        }
+
+        function getSamsungStrengthFormat(title) {
+            const text = String(title || '');
+            if (/\b1\s*rm\b|\bsingle\b/i.test(text)) return 'x1';
+
+            const schemeMatch = text.match(/\b\d+\s*[x×]\s*(\d+)\b/i);
+            const directFormatMatch = text.match(/\bx\s*(\d+)\b/i);
+            const formatNumber = schemeMatch ? schemeMatch[1] : (directFormatMatch ? directFormatMatch[1] : '');
+            const format = formatNumber ? `x${Number(formatNumber)}` : '';
+            if (defaultFormats.some(availableFormat => availableFormat.toLocaleLowerCase('fr') === format.toLocaleLowerCase('fr'))) {
+                return format;
+            }
+            return '';
+        }
+
+        function removeSamsungStrengthMarkers(title) {
+            return String(title || '')
+                .replace(/\b1\s*rm\b|\bsingle\b/ig, ' ')
+                .replace(/\b\d+\s*[x×]\s*(\d+)\b/ig, (marker, formatNumber) =>
+                    defaultFormats.some(format => format.toLocaleLowerCase('fr') === `x${Number(formatNumber)}`.toLocaleLowerCase('fr'))
+                        ? ' '
+                        : marker
+                )
+                .replace(/\bx\s*(\d+)\b/ig, (marker, formatNumber) =>
+                    defaultFormats.some(format => format.toLocaleLowerCase('fr') === `x${Number(formatNumber)}`.toLocaleLowerCase('fr'))
+                        ? ' '
+                        : marker
+                )
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function parseSamsungNoteText(content) {
+            const lines = String(content || '').replace(/\r\n?/g, '\n').split('\n');
+            const entries = [];
+            const errors = [];
+            let currentSession = null;
+            let currentExercise = null;
+            let activeSuperset = null;
+            let blankSinceLastExercise = false;
+
+            function finishExercise(lineNumber) {
+                if (!currentExercise) return;
+                if (!currentExercise.entries.length) {
+                    errors.push(`Ligne ${lineNumber} : « ${currentExercise.name} » ne contient aucune série.`);
+                } else {
+                    const firstEntry = currentExercise.entries[0];
+                    firstEntry.notes = [firstEntry.notes, currentExercise.notes.join('\n')].filter(Boolean).join('\n');
+                    entries.push(...currentExercise.entries);
+                }
+                currentExercise = null;
+            }
+
+            function finishSuperset() {
+                if (!activeSuperset) return;
+                if (activeSuperset.members.length > 1) {
+                    const exerciseNumbers = activeSuperset.members.map(exercise => exercise.exerciseOrder);
+                    const supersetNote = `Superset [${exerciseNumbers.join(', ')}]`;
+                    const firstExercise = activeSuperset.members[0];
+                    activeSuperset.members.slice(1).forEach(exercise => {
+                        exercise.entries.forEach(entry => {
+                            if (!entry.rest) {
+                                const matchingSet = firstExercise.entries.find(firstEntry => firstEntry.setNumber === entry.setNumber);
+                                const previousRest = firstExercise.entries
+                                    .filter(firstEntry => firstEntry.setNumber <= entry.setNumber && firstEntry.rest)
+                                    .slice(-1)[0];
+                                entry.rest = (matchingSet && matchingSet.rest) || (previousRest && previousRest.rest) || '';
+                            }
+                        });
+                    });
+                    activeSuperset.members.forEach(exercise => {
+                        exercise.entries.forEach(entry => {
+                            entry.notes = entry.notes ? `${entry.notes}\n${supersetNote}` : supersetNote;
+                        });
+                    });
+                }
+                activeSuperset = null;
+            }
+
+            lines.forEach((rawLine, index) => {
+                const lineNumber = index + 1;
+                const line = rawLine.trim();
+                if (!line || /^[-_=]{3,}$/.test(line)) {
+                    blankSinceLastExercise = true;
+                    return;
+                }
+
+                const sessionMatch = line.match(/^(\d{1,2}[/. -]\d{1,2}[/. -]\d{4})\s+(.+)$/);
+                if (sessionMatch) {
+                    finishExercise(lineNumber);
+                    finishSuperset();
+                    const date = normalizeImportedDate(sessionMatch[1]);
+                    const type = sessionMatch[2].trim();
+                    if (!date || !type) {
+                        currentSession = null;
+                        errors.push(`Ligne ${lineNumber} : date ou type de séance invalide.`);
+                    } else {
+                        currentSession = { date, type, exerciseOrder: 0 };
+                    }
+                    blankSinceLastExercise = false;
+                    return;
+                }
+
+                const bulletMatch = line.match(/^[-•*]\s*(.+)$/);
+                if (bulletMatch) {
+                    if (!currentExercise) {
+                        errors.push(`Ligne ${lineNumber} : remarque sans exercice associé.`);
+                    } else {
+                        currentExercise.notes.push(bulletMatch[1].trim());
+                    }
+                    blankSinceLastExercise = false;
+                    return;
+                }
+
+                let setLine;
+                try {
+                    setLine = parseSamsungSetLine(line);
+                } catch (error) {
+                    errors.push(`Ligne ${lineNumber} : ${error.message}.`);
+                    blankSinceLastExercise = false;
+                    return;
+                }
+
+                if (setLine) {
+                    if (!currentSession || !currentExercise) {
+                        errors.push(`Ligne ${lineNumber} : ajoute d’abord une ligne date/séance puis un titre d’exercice.`);
+                        blankSinceLastExercise = false;
+                        return;
+                    }
+                    currentExercise.entries.push({
+                        date: currentSession.date,
+                        city: '',
+                        type: currentSession.type,
+                        objective: currentExercise.strengthFormat && setLine.reps <= 6 ? 'Force' : 'Body',
+                        format: currentExercise.strengthFormat && setLine.reps <= 6 ? currentExercise.strengthFormat : '',
+                        exerciseOrder: currentExercise.exerciseOrder,
+                        exercise: currentExercise.name,
+                        setNumber: currentExercise.entries.length + 1,
+                        reps: setLine.reps,
+                        weight: setLine.weight,
+                        rpe: setLine.rpe,
+                        rest: setLine.rest,
+                        notes: setLine.notes
+                    });
+                    blankSinceLastExercise = false;
+                    return;
+                }
+
+                if (!currentSession) {
+                    errors.push(`Ligne ${lineNumber} : ajoute une ligne date/séance avant les exercices (ex. « 21/11/2026 Leg »).`);
+                    blankSinceLastExercise = false;
+                    return;
+                }
+
+                const hadBlankSeparator = blankSinceLastExercise;
+                const supersetMatch = line.match(/^superset\s*:\s*(.*)$/i);
+                finishExercise(lineNumber);
+                if (supersetMatch || (activeSuperset && hadBlankSeparator)) finishSuperset();
+                const exerciseTitle = supersetMatch ? supersetMatch[1] : line;
+                if (supersetMatch && !exerciseTitle.trim()) {
+                    errors.push(`Ligne ${lineNumber} : nom d’exercice manquant après « Superset : ».`);
+                    blankSinceLastExercise = false;
+                    return;
+                }
+                const titleNotes = [];
+                const titleWithoutParentheses = exerciseTitle.replace(/\(([^()]*)\)/g, (match, note) => {
+                    if (note.trim()) titleNotes.push(note.trim());
+                    return ' ';
+                });
+                const strengthFormat = getSamsungStrengthFormat(titleWithoutParentheses);
+                const exerciseName = removeSamsungStrengthMarkers(titleWithoutParentheses);
+                if (!exerciseName) {
+                    errors.push(`Ligne ${lineNumber} : nom d’exercice manquant.`);
+                    blankSinceLastExercise = false;
+                    return;
+                }
+                currentSession.exerciseOrder += 1;
+                currentExercise = {
+                    name: exerciseName,
+                    strengthFormat,
+                    exerciseOrder: currentSession.exerciseOrder,
+                    entries: [],
+                    notes: titleNotes
+                };
+                if (supersetMatch) activeSuperset = { members: [] };
+                if (activeSuperset) activeSuperset.members.push(currentExercise);
+                blankSinceLastExercise = false;
+            });
+
+            finishExercise(lines.length);
+            finishSuperset();
+            if (errors.length) {
+                const shownErrors = errors.slice(0, 8).join(' ');
+                const remaining = errors.length > 8 ? ` Et ${errors.length - 8} autre(s) erreur(s).` : '';
+                throw new Error(`${shownErrors}${remaining}`);
+            }
+            if (!entries.length) throw new Error('Aucune série reconnue dans le texte.');
+            return entries;
+        }
+
+        function openSamsungNoteConverter() {
+            document.getElementById('samsung-note-status').textContent = '';
+            document.getElementById('samsung-note-city').value = '';
+            populateExerciseDropdowns();
+            document.getElementById('samsung-note-converter').classList.remove('hidden');
+            document.getElementById('samsung-note-city').focus();
+        }
+
+        function closeSamsungNoteConverter() {
+            document.getElementById('samsung-note-converter').classList.add('hidden');
+        }
+
+        function prepareSamsungNoteImport(entries, city) {
+            const availableExercises = getAvailableExerciseNames();
+            const mappings = new Map();
+            const unknownExercises = [];
+            entries.forEach(entry => {
+                if (mappings.has(entry.exercise) || unknownExercises.includes(entry.exercise)) return;
+                const match = availableExercises.find(exercise =>
+                    exercise.toLocaleLowerCase('fr') === entry.exercise.toLocaleLowerCase('fr')
+                );
+                if (match) mappings.set(entry.exercise, match);
+                else unknownExercises.push(entry.exercise);
+            });
+
+            if (!unknownExercises.length) {
+                continueSamsungNoteImport(entries, mappings, [], city);
+                return;
+            }
+
+            pendingSamsungImport = { entries, mappings, unknownExercises, city };
+            document.getElementById('samsung-exercise-resolution-list').innerHTML = unknownExercises.map((exercise, index) => `
+                <div class="rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+                    <p class="mb-2 text-sm font-semibold text-white">${escapeHtml(exercise)}</p>
+                    <div class="relative">
+                        <input id="samsung-exercise-search-${index}" type="text" value="${escapeHtml(exercise)}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="samsung-exercise-options-${index}" placeholder="Rechercher un exercice" oninput="handleSamsungExerciseSearchInput(${index})" onfocus="filterSamsungExerciseOptions(${index})" onkeydown="handleSamsungExerciseSearchKeydown(event, ${index})" onblur="setTimeout(() => hideSamsungExerciseOptions(${index}), 150)" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none">
+                        <div id="samsung-exercise-options-${index}" role="listbox" class="absolute z-20 mt-1 hidden max-h-56 w-full overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 p-1 shadow-xl"></div>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('samsung-exercise-resolution-status').textContent = '';
+            document.getElementById('samsung-exercise-resolution').classList.remove('hidden');
+            filterSamsungExerciseOptions(0);
+            document.getElementById('samsung-exercise-search-0').focus();
+        }
+
+        function normalizeSamsungExerciseSearch(value) {
+            return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr').trim();
+        }
+
+        function hideSamsungExerciseOptions(index) {
+            const options = document.getElementById(`samsung-exercise-options-${index}`);
+            const input = document.getElementById(`samsung-exercise-search-${index}`);
+            if (options) options.classList.add('hidden');
+            if (input) input.setAttribute('aria-expanded', 'false');
+        }
+
+        function handleSamsungExerciseSearchInput(index) {
+            const input = document.getElementById(`samsung-exercise-search-${index}`);
+            input.dataset.selectedExercise = '';
+            input.dataset.createExercise = '';
+            filterSamsungExerciseOptions(index);
+        }
+
+        function filterSamsungExerciseOptions(index) {
+            const input = document.getElementById(`samsung-exercise-search-${index}`);
+            const options = document.getElementById(`samsung-exercise-options-${index}`);
+            if (!input || !options) return;
+
+            const query = normalizeSamsungExerciseSearch(input.value);
+            const matches = getAvailableExerciseNames()
+                .map(exercise => {
+                    const normalized = normalizeSamsungExerciseSearch(exercise);
+                    const position = normalized.indexOf(query);
+                    return { exercise, position };
+                })
+                .filter(match => match.position >= 0)
+                .sort((a, b) => (a.position - b.position) || a.exercise.localeCompare(b.exercise, 'fr'))
+                .slice(0, 12);
+            const suggestions = matches.map(({ exercise }) => `
+                <button type="button" role="option" onmousedown="event.preventDefault()" onclick="selectSamsungExerciseSuggestion(${index}, 'existing', this.dataset.exercise)" data-exercise="${escapeHtml(exercise)}" class="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-800 focus:bg-slate-800 focus:outline-none">${escapeHtml(exercise)}</button>
+            `);
+            const createName = input.value.trim();
+            const exactMatch = getAvailableExerciseNames().some(exercise =>
+                normalizeSamsungExerciseSearch(exercise) === normalizeSamsungExerciseSearch(createName)
+            );
+            if (createName && !exactMatch) {
+                suggestions.push(`
+                    <button type="button" role="option" onmousedown="event.preventDefault()" onclick="selectSamsungExerciseSuggestion(${index}, 'create', this.dataset.exercise)" data-exercise="${escapeHtml(createName)}" class="block w-full rounded-md px-3 py-2 text-left text-sm text-emerald-300 hover:bg-slate-800 focus:bg-slate-800 focus:outline-none">Créer « ${escapeHtml(createName)} »</button>
+                `);
+            }
+            options.innerHTML = suggestions.length
+                ? suggestions.join('')
+                : '<p class="px-3 py-2 text-sm text-slate-500">Aucun exercice correspondant.</p>';
+            options.classList.remove('hidden');
+            input.setAttribute('aria-expanded', 'true');
+        }
+
+        function selectSamsungExerciseSuggestion(index, action, exercise) {
+            const input = document.getElementById(`samsung-exercise-search-${index}`);
+            const options = document.getElementById(`samsung-exercise-options-${index}`);
+            input.value = exercise;
+            input.dataset.selectedExercise = action === 'existing' ? exercise : '';
+            input.dataset.createExercise = action === 'create' ? 'true' : '';
+            options.classList.add('hidden');
+            input.setAttribute('aria-expanded', 'false');
+        }
+
+        function handleSamsungExerciseSearchKeydown(event, index) {
+            if (event.key === 'Escape') {
+                hideSamsungExerciseOptions(index);
+                event.preventDefault();
+            } else if (event.key === 'Enter') {
+                const options = document.getElementById(`samsung-exercise-options-${index}`);
+                const firstOption = options.querySelector('button[role="option"]');
+                if (firstOption && !options.classList.contains('hidden')) {
+                    firstOption.click();
+                    event.preventDefault();
+                }
+            }
+        }
+
+        function cancelSamsungExerciseResolution() {
+            pendingSamsungImport = null;
+            document.getElementById('samsung-exercise-resolution').classList.add('hidden');
+        }
+
+        function isSamsungBodyweightExercise(exercise) {
+            const normalizedName = normalizeSamsungExerciseSearch(exercise);
+            return normalizedName === 'dips' || normalizedName === 'tractions';
+        }
+
+        function continueSamsungNoteImport(entries, mappings, createdExercises, city) {
+            const mappedEntries = entries.map(entry => ({
+                ...entry,
+                exercise: mappings.get(entry.exercise) || entry.exercise
+            }));
+            const missingWeightEntries = mappedEntries.filter(entry =>
+                entry.weight === null || entry.weight === undefined || entry.weight === ''
+            );
+            const missingWeightForOtherExercises = missingWeightEntries.find(entry =>
+                !isSamsungBodyweightExercise(entry.exercise)
+            );
+            if (missingWeightForOtherExercises) {
+                throw new Error(`La charge manque pour « ${missingWeightForOtherExercises.exercise} ». Seuls les Dips et les Tractions peuvent utiliser le poids de corps automatiquement.`);
+            }
+
+            if (missingWeightEntries.length) {
+                pendingSamsungImport = {
+                    entries: mappedEntries,
+                    mappings: new Map(),
+                    createdExercises,
+                    city
+                };
+                document.getElementById('samsung-exercise-resolution').classList.add('hidden');
+                document.getElementById('samsung-bodyweight-input').value = '';
+                document.getElementById('samsung-bodyweight-status').textContent = '';
+                document.getElementById('samsung-bodyweight-dialog').classList.remove('hidden');
+                document.getElementById('samsung-bodyweight-input').focus();
+                return;
+            }
+
+            completeSamsungNoteImport(mappedEntries, new Map(), createdExercises, city);
+        }
+
+        function cancelSamsungBodyweightPrompt() {
+            pendingSamsungImport = null;
+            document.getElementById('samsung-bodyweight-dialog').classList.add('hidden');
+            document.getElementById('samsung-note-status').className = 'min-h-5 text-sm text-slate-400';
+            document.getElementById('samsung-note-status').textContent = 'Import annulé; aucune série n’a été ajoutée.';
+        }
+
+        function confirmSamsungBodyweight() {
+            if (!pendingSamsungImport) return;
+            const status = document.getElementById('samsung-bodyweight-status');
+            const bodyweight = parseImportedNumber(document.getElementById('samsung-bodyweight-input').value, NaN);
+            if (!Number.isFinite(bodyweight) || bodyweight <= 0) {
+                status.textContent = 'Saisis un poids de corps valide supérieur à 0 kg.';
+                return;
+            }
+
+            const entries = pendingSamsungImport.entries.map(entry => ({
+                ...entry,
+                weight: isSamsungBodyweightExercise(entry.exercise) &&
+                    (entry.weight === null || entry.weight === undefined || entry.weight === '')
+                    ? bodyweight
+                    : entry.weight
+            }));
+            try {
+                completeSamsungNoteImport(
+                    entries,
+                    pendingSamsungImport.mappings || new Map(),
+                    pendingSamsungImport.createdExercises || [],
+                    pendingSamsungImport.city
+                );
+            } catch (error) {
+                status.textContent = error.message || 'Impossible d’importer ces séries.';
+            }
+        }
+
+        function saveSamsungCreatedExercises(names) {
+            const namesToCreate = [...new Set(names.map(name => name.trim()).filter(Boolean))];
+            if (!namesToCreate.length) return;
+
+            const allNames = [...exerciseCatalog, ...customExercises, ...workoutData.map(entry => entry.exercise)];
+            const updatedCustomExercises = [...customExercises];
+            const updatedRemovedExercises = [...removedExercises];
+            namesToCreate.forEach(name => {
+                const removedName = updatedRemovedExercises.find(existing =>
+                    existing.toLocaleLowerCase('fr') === name.toLocaleLowerCase('fr')
+                );
+                if (removedName) {
+                    updatedRemovedExercises.splice(updatedRemovedExercises.indexOf(removedName), 1);
+                }
+                if (!allNames.some(existing => existing.toLocaleLowerCase('fr') === name.toLocaleLowerCase('fr')) &&
+                    !updatedCustomExercises.some(existing => existing.toLocaleLowerCase('fr') === name.toLocaleLowerCase('fr'))) {
+                    updatedCustomExercises.push(name);
+                }
+            });
+
+            try {
+                localStorage.setItem(customExercisesStorageKey, JSON.stringify(updatedCustomExercises));
+                localStorage.setItem(removedExercisesStorageKey, JSON.stringify(updatedRemovedExercises));
+            } catch (error) {
+                throw new Error("Impossible d’enregistrer le nouvel exercice dans les suggestions.");
+            }
+            customExercises = updatedCustomExercises;
+            removedExercises = updatedRemovedExercises;
+            scheduleCloudSync();
+            populateExerciseDropdowns();
+        }
+
+        function completeSamsungNoteImport(entries, mappings, createdExercises = [], city = '') {
+            saveSamsungCreatedExercises(createdExercises);
+            const timestamp = Date.now();
+            const importedEntries = entries.map((entry, index) => ({
+                ...entry,
+                exercise: mappings.get(entry.exercise) || entry.exercise,
+                city,
+                id: timestamp + index,
+                isLastCsvImport: true
+            }));
+            workoutData.forEach(entry => delete entry.isLastCsvImport);
+            workoutData = markDemoEntries(normalizeExerciseOrders(filterDemoEntries([...workoutData, ...importedEntries])));
+            currentTablePage = 1;
+            saveData();
+            renderTable();
+            populateExerciseDropdowns();
+            document.getElementById('samsung-note-status').className = 'min-h-5 text-sm text-emerald-300';
+            document.getElementById('samsung-note-status').textContent = `${entries.length} séries ajoutées au tableau et enregistrées.`;
+            showToast(`${entries.length} séries importées depuis la note Samsung !`);
+            pendingSamsungImport = null;
+            document.getElementById('samsung-exercise-resolution').classList.add('hidden');
+            document.getElementById('samsung-bodyweight-dialog').classList.add('hidden');
+            closeSamsungNoteConverter();
+        }
+
+        function confirmSamsungExerciseResolution() {
+            if (!pendingSamsungImport) return;
+            const mappings = new Map(pendingSamsungImport.mappings);
+            const createdExercises = [];
+            const status = document.getElementById('samsung-exercise-resolution-status');
+            for (let index = 0; index < pendingSamsungImport.unknownExercises.length; index++) {
+                const sourceName = pendingSamsungImport.unknownExercises[index];
+                const input = document.getElementById(`samsung-exercise-search-${index}`);
+                const choice = input.dataset.selectedExercise;
+                const createChoice = input.dataset.createExercise === 'true';
+                if (!choice && !createChoice) {
+                    status.textContent = `Choisis un exercice pour « ${sourceName} » ou sélectionne la création.`;
+                    return;
+                }
+                if (createChoice) {
+                    const newName = input.value.trim();
+                    if (!newName) {
+                        status.textContent = `Saisis un nom pour créer « ${sourceName} ».`;
+                        return;
+                    }
+                    mappings.set(sourceName, newName);
+                    createdExercises.push(newName);
+                } else {
+                    mappings.set(sourceName, choice);
+                }
+            }
+
+            try {
+                continueSamsungNoteImport(pendingSamsungImport.entries, mappings, createdExercises, pendingSamsungImport.city);
+            } catch (error) {
+                status.textContent = error.message || "Impossible d’importer cette note Samsung.";
+            }
+        }
+
+        function importSamsungNoteText() {
+            const status = document.getElementById('samsung-note-status');
+            try {
+                const city = document.getElementById('samsung-note-city').value.trim();
+                if (!city) {
+                    status.className = 'min-h-5 text-sm text-rose-300';
+                    status.textContent = 'Indique une ville, ou saisis-en une nouvelle, avant l’import.';
+                    document.getElementById('samsung-note-city').focus();
+                    return;
+                }
+                const entries = parseSamsungNoteText(document.getElementById('samsung-note-input').value);
+                prepareSamsungNoteImport(entries, city);
+            } catch (error) {
+                status.className = 'min-h-5 text-sm text-rose-300';
+                status.textContent = error.message || 'Impossible d’importer ce texte.';
+            }
         }
 
         // Importer un fichier CSV ou JSON
