@@ -100,8 +100,26 @@
                 <input id="auth-password" type="password" autocomplete="current-password" minlength="8" required class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
             </label>
             <button id="auth-submit" type="submit" class="w-full rounded-lg bg-emerald-500 px-4 py-2 font-bold text-slate-950 hover:bg-emerald-400">Se connecter</button>
+            <button id="auth-forgot-password" type="button" class="w-full text-sm text-slate-400 hover:text-white">Mot de passe oublié ?</button>
             <button id="auth-mode-toggle" type="button" class="w-full text-sm text-indigo-300 hover:text-indigo-200">Créer un compte</button>
+            <button id="auth-resend-confirmation" type="button" class="w-full text-sm text-slate-400 hover:text-white">Renvoyer l’e-mail de confirmation</button>
             <p id="auth-status" class="min-h-5 text-center text-sm text-slate-400" role="status" aria-live="polite"></p>
+        </form>
+        <form id="password-update-form" class="hidden w-full max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+            <div class="text-center">
+                <h2 class="text-xl font-bold text-white">Choisir un nouveau mot de passe</h2>
+                <p class="mt-2 text-sm text-slate-400">Saisis ton nouveau mot de passe pour IronTracker.</p>
+            </div>
+            <label class="block text-sm text-slate-300" for="new-password">
+                Nouveau mot de passe
+                <input id="new-password" type="password" autocomplete="new-password" minlength="8" required class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+            </label>
+            <label class="block text-sm text-slate-300" for="confirm-new-password">
+                Confirmer le mot de passe
+                <input id="confirm-new-password" type="password" autocomplete="new-password" minlength="8" required class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+            </label>
+            <button type="submit" class="w-full rounded-lg bg-emerald-500 px-4 py-2 font-bold text-slate-950 hover:bg-emerald-400">Enregistrer le nouveau mot de passe</button>
+            <p id="password-update-status" class="min-h-5 text-center text-sm text-slate-400" role="status" aria-live="polite"></p>
         </form>
     </section>
 
@@ -650,6 +668,7 @@
                 'sb_publishable_mNENm6IgI_OapyjaUFhQhA_sf-4mP3Q'
             )
             : null;
+        const appRedirectUrl = 'https://patupatuu.github.io/IronTracker/';
         let activeUserId = null;
         let appInitialized = false;
         let isHydratingCloud = false;
@@ -834,9 +853,17 @@
             document.getElementById('auth-title').textContent = isSignUp ? 'Créer un compte IronTracker' : 'Connexion à IronTracker';
             document.getElementById('auth-submit').textContent = isSignUp ? 'Créer mon compte' : 'Se connecter';
             document.getElementById('auth-mode-toggle').textContent = isSignUp ? 'J’ai déjà un compte' : 'Créer un compte';
+            document.getElementById('auth-forgot-password').classList.toggle('hidden', isSignUp);
             document.getElementById('auth-password').autocomplete = isSignUp ? 'new-password' : 'current-password';
             document.getElementById('auth-form').dataset.mode = mode;
             setAuthStatus('');
+        }
+
+        function showPasswordUpdateForm() {
+            document.getElementById('auth-gate').classList.remove('hidden');
+            document.getElementById('auth-form').classList.add('hidden');
+            document.getElementById('password-update-form').classList.remove('hidden');
+            document.getElementById('new-password').focus();
         }
 
         function displayStartupError(error) {
@@ -1002,6 +1029,82 @@
                 setAuthMode(currentMode === 'signin' ? 'signup' : 'signin');
             });
 
+            document.getElementById('auth-resend-confirmation').addEventListener('click', async () => {
+                if (!supabaseClient) {
+                    setAuthStatus('Le service de connexion n’a pas pu être chargé. Vérifie ta connexion Internet puis actualise la page.', true);
+                    return;
+                }
+
+                const email = document.getElementById('auth-email').value.trim();
+                if (!email) {
+                    setAuthStatus('Saisis ton adresse e-mail pour recevoir un nouveau lien.', true);
+                    document.getElementById('auth-email').focus();
+                    return;
+                }
+
+                setAuthStatus('Envoi du courriel…');
+                try {
+                    const { error } = await supabaseClient.auth.resend({
+                        type: 'signup',
+                        email,
+                        options: { emailRedirectTo: appRedirectUrl }
+                    });
+                    if (error) throw error;
+                    setAuthStatus('Si le compte attend une confirmation, un nouveau lien vient d’être envoyé.');
+                } catch (error) {
+                    setAuthStatus(error.message || 'Impossible de renvoyer le courriel.', true);
+                }
+            });
+
+            document.getElementById('auth-forgot-password').addEventListener('click', async () => {
+                if (!supabaseClient) {
+                    setAuthStatus('Le service de connexion n’a pas pu être chargé. Vérifie ta connexion Internet puis actualise la page.', true);
+                    return;
+                }
+
+                const email = document.getElementById('auth-email').value.trim();
+                if (!email) {
+                    setAuthStatus('Saisis ton adresse e-mail pour recevoir un lien de réinitialisation.', true);
+                    document.getElementById('auth-email').focus();
+                    return;
+                }
+
+                setAuthStatus('Envoi du courriel…');
+                try {
+                    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+                        redirectTo: appRedirectUrl
+                    });
+                    if (error) throw error;
+                    setAuthStatus('Si cette adresse correspond à un compte, un e-mail de réinitialisation a été envoyé.');
+                } catch (error) {
+                    setAuthStatus(error.message || 'Impossible d’envoyer le courriel de réinitialisation.', true);
+                }
+            });
+
+            document.getElementById('password-update-form').addEventListener('submit', async event => {
+                event.preventDefault();
+                const password = document.getElementById('new-password').value;
+                const confirmation = document.getElementById('confirm-new-password').value;
+                const status = document.getElementById('password-update-status');
+                if (password !== confirmation) {
+                    status.textContent = 'Les deux mots de passe ne correspondent pas.';
+                    status.className = 'min-h-5 text-center text-sm text-rose-300';
+                    return;
+                }
+
+                status.textContent = 'Mise à jour…';
+                status.className = 'min-h-5 text-center text-sm text-slate-400';
+                try {
+                    const { data, error } = await supabaseClient.auth.updateUser({ password });
+                    if (error) throw error;
+                    if (!data.user) throw new Error('La mise à jour du compte n’a pas abouti.');
+                    await initializeAuthenticatedApp(data.user);
+                } catch (error) {
+                    status.textContent = error.message || 'Impossible de modifier le mot de passe.';
+                    status.className = 'min-h-5 text-center text-sm text-rose-300';
+                }
+            });
+
             document.getElementById('auth-form').addEventListener('submit', async event => {
                 event.preventDefault();
                 if (!supabaseClient) {
@@ -1017,7 +1120,11 @@
                 setAuthStatus(isSignUp ? 'Création du compte…' : 'Connexion…');
                 try {
                     const result = isSignUp
-                        ? await supabaseClient.auth.signUp({ email, password })
+                        ? await supabaseClient.auth.signUp({
+                            email,
+                            password,
+                            options: { emailRedirectTo: appRedirectUrl }
+                        })
                         : await supabaseClient.auth.signInWithPassword({ email, password });
                     if (result.error) throw result.error;
                     if (result.data.session) {
@@ -1038,8 +1145,14 @@
                 return;
             }
 
-            supabaseClient.auth.onAuthStateChange((_event, session) => {
-                setTimeout(() => handleAuthSession(session), 0);
+            supabaseClient.auth.onAuthStateChange((event, session) => {
+                setTimeout(() => {
+                    if (event === 'PASSWORD_RECOVERY' && session) {
+                        showPasswordUpdateForm();
+                        return;
+                    }
+                    handleAuthSession(session);
+                }, 0);
             });
 
             const { data, error } = await supabaseClient.auth.getSession();
