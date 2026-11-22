@@ -1,0 +1,2541 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>IronTracker - Carnet & Analyse Musculation Local</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            green: '#10B981',
+                            neon: '#00FF66',
+                            dark: '#0F172A',
+                            card: '#1E293B',
+                            accent: '#6366F1'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Personnalisation de la barre de défilement */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #10B981;
+        }
+        .exercise-column {
+            min-width: 14rem;
+        }
+        td[data-field] {
+            cursor: cell;
+        }
+        td[data-field]:hover {
+            outline: 1px solid #334155;
+            outline-offset: -1px;
+        }
+        @keyframes progress-sweep {
+            from { transform: translateX(-120%); }
+            to { transform: translateX(380%); }
+        }
+        .progress-sweep {
+            animation: progress-sweep 1.2s ease-in-out infinite;
+        }
+        @media (min-width: 1680px) {
+            #section-tracker {
+                grid-template-columns: 340px 1216px;
+                justify-content: center;
+                align-items: stretch;
+            }
+            #section-tracker > div:last-child {
+                min-height: 0;
+            }
+            #section-tracker > div:last-child > .overflow-x-auto {
+                flex: 1 1 0%;
+                min-height: 0;
+                max-height: 771px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col">
+
+    <!-- Barre de Navigation Supérieure -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-lg">
+        <div class="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
+                    <i class="fa-solid fa-dumbbell text-slate-950"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-indigo-400 bg-clip-text text-transparent">IronTracker Local</h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">Carnet & Analyse de Performances en Local</p>
+                </div>
+            </div>
+
+            <!-- Onglets de Navigation -->
+            <div class="flex flex-col items-stretch gap-2 xl:items-end">
+                <nav class="flex self-end bg-slate-950 p-1 rounded-xl border border-slate-800">
+                    <button id="tab-tracker-btn" onclick="switchTab('tracker')" class="flex items-center space-x-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all bg-emerald-500 text-slate-950 shadow">
+                        <i class="fa-solid fa-table"></i>
+                        <span class="hidden sm:inline">Saisie & Carnet</span>
+                    </button>
+                    <button id="tab-analytics-btn" onclick="switchTab('analytics')" class="flex items-center space-x-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span class="hidden sm:inline">Analyse & Comparatif</span>
+                    </button>
+                </nav>
+                <div class="flex flex-wrap justify-end gap-2">
+                    <button onclick="loadDemoData()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/60 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Données Démo
+                    </button>
+                    <button onclick="exportDataJSON()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-upload text-emerald-400"></i> Exporter JSON
+                    </button>
+                    <button onclick="exportDataCSV()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-csv text-emerald-400"></i> Exporter CSV
+                    </button>
+                    <label class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-download text-indigo-400"></i> Importer
+                        <input type="file" id="importFile" accept=".json,.csv" onchange="importData(event)" class="hidden">
+                    </label>
+                    <button onclick="clearDemoData()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-trash-can"></i> Supprimer Démo
+                    </button>
+                    <button onclick="clearAllData()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-trash"></i> Vider Tout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Conteneur Principal -->
+    <main class="flex-grow max-w-[1644px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- SECTION 1: SAISIE & CARNET DE SÉANCE -->
+        <section id="section-tracker" class="grid grid-cols-1 gap-6">
+            
+            <!-- Saisie Rapide & Contrôles -->
+            <div class="min-w-0 bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-xl space-y-4">
+                <div class="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-slate-800 pb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-pen-to-square text-emerald-400"></i> Nouvelle Série
+                        </h2>
+                    </div>
+                    
+                </div>
+
+                <!-- Formulaire de Saisie -->
+                <form id="entry-form" onsubmit="handleAddEntry(event)" class="flex flex-col gap-3">
+                    <div class="w-full">
+                        <label class="block text-xs text-slate-400 mb-1 font-medium">Date</label>
+                        <input type="date" id="input-date" required onchange="updateEntryCityForDate()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div class="w-full">
+                        <label class="block text-xs text-slate-400 mb-1 font-medium">Ville</label>
+                        <input type="text" id="input-city" placeholder="Ville de la salle" list="city-list" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                        <datalist id="city-list"></datalist>
+                    </div>
+                    <div class="w-full">
+                        <label class="block text-xs text-slate-400 mb-1 font-medium">Séance</label>
+                        <input type="text" id="input-type" list="session-list" value="Push" placeholder="Saisir ou choisir une séance" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                        <datalist id="session-list"></datalist>
+                    </div>
+                    <div class="w-full">
+                        <label class="block text-xs text-slate-400 mb-1 font-medium">Exercice</label>
+                        <input type="text" id="input-exercise" placeholder="Rechercher ou choisir un exercice" required list="exercise-list" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                        <datalist id="exercise-list"></datalist>
+                    </div>
+                    <div class="w-full">
+                        <label class="block text-xs text-slate-400 mb-1 font-medium">Objectif</label>
+                        <input type="text" id="input-objective" list="objective-list" placeholder="Saisir ou choisir un objectif" oninput="updateFormatAvailability()" onblur="capitalizeObjectiveInput()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                        <datalist id="objective-list">
+                            <option value="Body"></option>
+                            <option value="Force"></option>
+                        </datalist>
+                    </div>
+                    <div class="w-full">
+                        <label class="block text-xs text-slate-400 mb-1 font-medium">Format</label>
+                        <input type="text" id="input-format" list="format-list" placeholder="Disponible pour l'objectif Force" disabled class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
+                        <datalist id="format-list"></datalist>
+                    </div>
+                    <div class="w-full">
+                        <label class="block text-xs text-slate-400 mb-1 font-medium">N° Série</label>
+                        <input type="number" id="input-set" min="1" max="30" value="1" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div class="w-full">
+                        <label class="block text-xs text-slate-400 mb-1 font-medium">Répétitions</label>
+                        <input type="number" id="input-reps" min="1" placeholder="10" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div class="w-full">
+                        <label class="block text-xs text-slate-400 mb-1 font-medium">Charge (kg)</label>
+                        <div class="relative w-full">
+                            <input type="text" id="input-weight" inputmode="decimal" pattern="[0-9]+([.,][0-9])?" title="Saisir une charge positive, avec au plus une décimale (virgule ou point)" placeholder="80,5" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 pr-7 text-xs text-white focus:outline-none focus:border-emerald-500">
+                            <div class="absolute inset-y-px right-px flex w-5 flex-col overflow-hidden rounded-r-lg">
+                                <button type="button" onclick="adjustInputWeight(1)" aria-label="Augmenter la charge de 1 kg" title="+1 kg" class="flex flex-1 items-center justify-center text-[8px] text-slate-500 hover:bg-slate-800 hover:text-white">
+                                    <i class="fa-solid fa-chevron-up"></i>
+                                </button>
+                                <button type="button" onclick="adjustInputWeight(-1)" aria-label="Diminuer la charge de 1 kg" title="-1 kg" class="flex flex-1 items-center justify-center text-[8px] text-slate-500 hover:bg-slate-800 hover:text-white">
+                                    <i class="fa-solid fa-chevron-down"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full">
+                        <label class="block text-xs text-slate-400 mb-1 font-medium">RPE</label>
+                        <input type="number" id="input-rpe" min="0" max="10" step="1" placeholder="0–10" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div class="w-full">
+                        <label class="block text-xs text-slate-400 mb-1 font-medium">Repos (sec)</label>
+                        <input type="number" id="input-rest" step="5" min="0" placeholder="90" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div class="w-full">
+                        <label class="block text-xs text-slate-400 mb-1 font-medium">Remarque</label>
+                        <input type="text" id="input-notes" placeholder="Remarque sur la série" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div class="w-full">
+                        <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-plus"></i> Ajouter
+                        </button>
+                    </div>
+                    <div class="flex flex-wrap justify-start gap-2">
+                        <button type="button" onclick="openExerciseAction('add')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/60 transition flex items-center gap-1.5" title="Ajouter un exercice aux suggestions">
+                            <i class="fa-solid fa-plus"></i> Ajouter exercice
+                        </button>
+                        <button type="button" onclick="openExerciseAction('remove')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 transition flex items-center gap-1.5" title="Retirer un exercice des suggestions">
+                            <i class="fa-solid fa-trash-can"></i> Supprimer exercice
+                        </button>
+                    </div>
+                    <div id="exercise-action-panel" class="hidden rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+                        <label id="exercise-action-label" for="exercise-action-input" class="mb-1 block text-xs font-medium text-slate-400"></label>
+                        <div class="flex flex-col gap-2 sm:flex-row">
+                            <input type="text" id="exercise-action-input" list="exercise-list" placeholder="Rechercher ou saisir un exercice" onkeydown="if(event.key==='Enter'){event.preventDefault();submitExerciseAction()}else if(event.key==='Escape'){closeExerciseAction()}" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-white focus:border-emerald-500 focus:outline-none">
+                            <button type="button" id="exercise-action-submit" onclick="submitExerciseAction()" class="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-emerald-400"></button>
+                            <button type="button" onclick="closeExerciseAction()" class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800">Annuler</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tableau Style Google Sheets / Excel -->
+            <div class="w-full max-w-[1216px] min-w-0 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden flex flex-col">
+                <div class="p-4 border-b border-slate-800 flex flex-col gap-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h3 class="font-semibold text-white">Tableau des Performances</h3>
+                        <span id="row-count-badge" class="bg-slate-800 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono border border-slate-700">0 séries</span>
+                        <button id="delete-last-csv-import" type="button" onclick="deleteLastCsvImport()" disabled title="Aucun import CSV à supprimer" aria-label="Supprimer le dernier import CSV" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 transition disabled:cursor-not-allowed disabled:opacity-40">
+                            <i class="fa-solid fa-trash-can"></i> Supprimer le dernier import CSV
+                        </button>
+                    </div>
+
+                    <!-- Filtres du Tableau -->
+                    <div class="flex w-full flex-col gap-2" aria-label="Filtres de recherche combinés">
+                        <p class="text-[11px] text-slate-400">Les recherches renseignées se combinent : chaque critère doit correspondre.</p>
+                        <div class="flex w-full flex-col gap-2 sm:flex-row">
+                            <select id="filter-column-1" onchange="currentTablePage=1; renderTable()" aria-label="Colonne de recherche 1" class="w-full sm:w-40 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500">
+                                <option value="">Toutes les colonnes</option>
+                                <option value="date">Date</option>
+                                <option value="city">Ville</option>
+                                <option value="type">Séance</option>
+                                <option value="objective">Objectif</option>
+                                <option value="format">Format</option>
+                                <option value="exerciseOrder">N° Ex</option>
+                                <option value="exercise">Exercice</option>
+                                <option value="setNumber">N° Série</option>
+                                <option value="reps">Répétitions</option>
+                                <option value="weight">Charge (kg)</option>
+                                <option value="rpe">RPE</option>
+                                <option value="rest">Repos (sec)</option>
+                                <option value="notes">Remarques</option>
+                            </select>
+                            <select id="filter-search-mode-1" onchange="currentTablePage=1; renderTable()" aria-label="Mode de recherche 1" class="w-full sm:w-44 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500">
+                                <option value="partial">Recherche partielle</option>
+                                <option value="exact">Recherche stricte</option>
+                            </select>
+                            <input type="text" id="filter-search-1" oninput="scheduleTableRender()" placeholder="Recherche 1..." aria-label="Recherche 1" class="w-full min-w-0 flex-1 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div class="flex w-full flex-col gap-2 sm:flex-row">
+                            <select id="filter-column-2" onchange="currentTablePage=1; renderTable()" aria-label="Colonne de recherche 2" class="w-full sm:w-40 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500">
+                                <option value="">Toutes les colonnes</option>
+                                <option value="date">Date</option>
+                                <option value="city">Ville</option>
+                                <option value="type">Séance</option>
+                                <option value="objective">Objectif</option>
+                                <option value="format">Format</option>
+                                <option value="exerciseOrder">N° Ex</option>
+                                <option value="exercise">Exercice</option>
+                                <option value="setNumber">N° Série</option>
+                                <option value="reps">Répétitions</option>
+                                <option value="weight">Charge (kg)</option>
+                                <option value="rpe">RPE</option>
+                                <option value="rest">Repos (sec)</option>
+                                <option value="notes">Remarques</option>
+                            </select>
+                            <select id="filter-search-mode-2" onchange="currentTablePage=1; renderTable()" aria-label="Mode de recherche 2" class="w-full sm:w-44 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500">
+                                <option value="partial">Recherche partielle</option>
+                                <option value="exact">Recherche stricte</option>
+                            </select>
+                            <input type="text" id="filter-search-2" oninput="scheduleTableRender()" placeholder="Recherche 2..." aria-label="Recherche 2" class="w-full min-w-0 flex-1 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div class="flex w-full flex-col gap-2 sm:flex-row">
+                            <select id="filter-column-3" onchange="currentTablePage=1; renderTable()" aria-label="Colonne de recherche 3" class="w-full sm:w-40 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500">
+                                <option value="">Toutes les colonnes</option>
+                                <option value="date">Date</option>
+                                <option value="city">Ville</option>
+                                <option value="type">Séance</option>
+                                <option value="objective">Objectif</option>
+                                <option value="format">Format</option>
+                                <option value="exerciseOrder">N° Ex</option>
+                                <option value="exercise">Exercice</option>
+                                <option value="setNumber">N° Série</option>
+                                <option value="reps">Répétitions</option>
+                                <option value="weight">Charge (kg)</option>
+                                <option value="rpe">RPE</option>
+                                <option value="rest">Repos (sec)</option>
+                                <option value="notes">Remarques</option>
+                            </select>
+                            <select id="filter-search-mode-3" onchange="currentTablePage=1; renderTable()" aria-label="Mode de recherche 3" class="w-full sm:w-44 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500">
+                                <option value="partial">Recherche partielle</option>
+                                <option value="exact">Recherche stricte</option>
+                            </select>
+                            <input type="text" id="filter-search-3" oninput="scheduleTableRender()" placeholder="Recherche 3..." aria-label="Recherche 3" class="w-full min-w-0 flex-1 bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
+                    <table class="w-full min-w-[1150px] text-left text-xs text-slate-300 border-collapse">
+                        <thead class="bg-slate-950 text-slate-400 uppercase font-semibold sticky top-0 border-b border-slate-800 z-10">
+                            <tr>
+                                <th class="py-3 px-4 cursor-pointer hover:text-white" onclick="sortTable('date')">Date <i class="fa-solid fa-sort text-slate-600"></i></th>
+                                <th class="py-3 px-4">Ville</th>
+                                <th class="py-3 px-4">Séance</th>
+                                <th class="py-3 px-4">Objectif</th>
+                                <th class="py-3 px-4">Format</th>
+                                <th class="w-20 whitespace-nowrap py-3 px-4 text-center cursor-pointer hover:text-white" onclick="sortTable('exerciseOrder')">N° Ex <i class="fa-solid fa-sort text-slate-600"></i></th>
+                                <th class="exercise-column py-3 px-4 cursor-pointer hover:text-white" onclick="sortTable('exercise')">Exercice <i class="fa-solid fa-sort text-slate-600"></i></th>
+                                <th class="py-3 px-4 text-center cursor-pointer hover:text-white" onclick="sortTable('setNumber')">N° Série <i class="fa-solid fa-sort text-slate-600"></i></th>
+                                <th class="py-3 px-4 text-right cursor-pointer hover:text-white" onclick="sortTable('reps')">Reps <i class="fa-solid fa-sort text-slate-600"></i></th>
+                                <th class="py-3 px-4 text-right cursor-pointer hover:text-white" onclick="sortTable('weight')">Charge (kg) <i class="fa-solid fa-sort text-slate-600"></i></th>
+                                <th class="py-3 px-4 text-center">RPE</th>
+                                <th class="py-3 px-4 text-right">Repos (sec)</th>
+                                <th class="py-3 px-4">Remarques</th>
+                                <th class="py-3 px-4 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <!-- Contenu généré en JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex flex-col items-start gap-2 border-t border-slate-800 px-4 py-2 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+                    <span id="table-page-status" aria-live="polite"></span>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="flex items-center gap-1.5">
+                            <label for="table-page-input">Page</label>
+                            <input id="table-page-input" type="number" min="1" value="1" onchange="goToTablePageFromInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" aria-label="Numéro de page" class="w-16 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-center text-slate-200 focus:border-emerald-500 focus:outline-none">
+                            <span>/ <span id="table-page-count">1</span></span>
+                        </div>
+                        <div class="flex gap-1">
+                        <button id="table-first-page" type="button" onclick="goToTablePage(1)" title="Première page" aria-label="Première page" class="rounded border border-slate-700 px-2 py-1 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Début</button>
+                        <button id="table-previous-page" type="button" onclick="changeTablePage(-1)" class="rounded border border-slate-700 px-2 py-1 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Précédent</button>
+                        <button id="table-next-page" type="button" onclick="changeTablePage(1)" class="rounded border border-slate-700 px-2 py-1 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Suivant</button>
+                        <button id="table-last-page" type="button" onclick="goToLastTablePage()" title="Dernière page" aria-label="Dernière page" class="rounded border border-slate-700 px-2 py-1 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Fin</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: ANALYSE & COMPARATIF -->
+        <section id="section-analytics" class="max-w-7xl mx-auto space-y-6 hidden">
+            
+            <!-- Filtres d'Analyse -->
+            <div class="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-indigo-400"></i> Comparatif des Performances
+                    </h2>
+                    <p class="text-xs text-slate-400">Choisissez une période pour les indicateurs et graphiques. Le tableau compare toutes les périodes proposées à leur intervalle précédent.</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                    <div>
+                        <label for="analytics-period-select" class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1 font-semibold">Période des indicateurs</label>
+                        <select id="analytics-period-select" onchange="updateAnalytics()" class="bg-slate-950 border border-slate-700 text-sm text-emerald-400 font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[190px]">
+                            <option value="30d">30 derniers jours</option>
+                            <option value="60d" selected>60 derniers jours</option>
+                            <option value="3m">3 derniers mois</option>
+                            <option value="6m">6 derniers mois</option>
+                            <option value="9m">9 derniers mois</option>
+                            <option value="12m">12 derniers mois</option>
+                            <option value="24m">2 dernières années</option>
+                            <option value="36m">3 dernières années</option>
+                            <option value="48m">4 dernières années</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="analytics-mode-select" class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1 font-semibold">Analyser par</label>
+                        <select id="analytics-mode-select" onchange="updateAnalytics()" class="bg-slate-950 border border-slate-700 text-sm text-emerald-400 font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[150px]">
+                            <option value="exercise">Exercice</option>
+                            <option value="session">Séance</option>
+                        </select>
+                    </div>
+                    <div id="analytics-exercise-control">
+                        <label for="analytics-exercise-select" class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1 font-semibold">Exercice à analyser</label>
+                        <input type="text" id="analytics-exercise-select" list="analytics-exercise-list" oninput="updateAnalytics()" placeholder="Saisir ou choisir un exercice" class="w-full sm:w-80 lg:w-96 bg-slate-950 border border-slate-700 text-sm text-emerald-400 font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[220px]">
+                        <datalist id="analytics-exercise-list"></datalist>
+                    </div>
+                    <div id="analytics-session-control" class="hidden">
+                        <label for="analytics-session-select" class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1 font-semibold">Séance à analyser</label>
+                        <input type="text" id="analytics-session-select" list="analytics-session-list" oninput="updateAnalytics()" placeholder="Saisir ou choisir une séance" class="bg-slate-950 border border-slate-700 text-sm text-emerald-400 font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[220px]">
+                        <datalist id="analytics-session-list"></datalist>
+                    </div>
+                    <fieldset id="analytics-objective-filter" class="min-w-[150px]">
+                        <legend class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1 font-semibold">Filtrer les objectifs</legend>
+                        <div class="flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-300">
+                            <label class="inline-flex items-center gap-1"><input type="checkbox" value="body" onchange="updateAnalytics()" class="accent-emerald-500">Body</label>
+                            <label class="inline-flex items-center gap-1"><input type="checkbox" value="force" onchange="updateAnalytics()" class="accent-emerald-500">Force</label>
+                        </div>
+                        <span class="text-[10px] text-slate-500">Aucune sélection = tous les objectifs</span>
+                    </fieldset>
+                    <fieldset id="analytics-format-filter" class="min-w-[220px]">
+                        <legend class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1 font-semibold">Filtrer les formats</legend>
+                        <div class="flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-300">
+                            <label class="inline-flex items-center gap-1"><input type="checkbox" value="x1" onchange="updateAnalytics()" class="accent-emerald-500">x1</label>
+                            <label class="inline-flex items-center gap-1"><input type="checkbox" value="x2" onchange="updateAnalytics()" class="accent-emerald-500">x2</label>
+                            <label class="inline-flex items-center gap-1"><input type="checkbox" value="x3" onchange="updateAnalytics()" class="accent-emerald-500">x3</label>
+                            <label class="inline-flex items-center gap-1"><input type="checkbox" value="x5" onchange="updateAnalytics()" class="accent-emerald-500">x5</label>
+                            <label class="inline-flex items-center gap-1"><input type="checkbox" value="x6" onchange="updateAnalytics()" class="accent-emerald-500">x6</label>
+                        </div>
+                        <span class="text-[10px] text-slate-500">Aucune sélection = tous les formats</span>
+                    </fieldset>
+                    <div>
+                        <label for="analytics-notes-filter" class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1 font-semibold">Filtrer les remarques</label>
+                        <input type="text" id="analytics-notes-filter" oninput="updateAnalytics()" placeholder="Ex. FORCE :" class="bg-slate-950 border border-slate-700 text-sm text-emerald-400 font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[180px]">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cartes KPI (Météo des stats) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- 1RM Max -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                    <div class="flex justify-between items-start">
+                        <span id="kpi-1rm-label" class="text-xs font-medium text-slate-400 uppercase tracking-wider">Meilleur 1RM estimé (Epley)</span>
+                        <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                            <i class="fa-solid fa-trophy"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="kpi-1rm" class="text-2xl font-black text-white">0 kg</span>
+                        <span id="kpi-1rm-diff" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">--</span>
+                    </div>
+                    <p id="kpi-1rm-description" class="text-[11px] text-slate-500 mt-1">Estimé sur la meilleure série</p>
+                </div>
+
+                <!-- Charge Max -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                    <div class="flex justify-between items-start">
+                        <span id="kpi-max-weight-label" class="text-xs font-medium text-slate-400 uppercase tracking-wider">Charge Max Soulevée</span>
+                        <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+                            <i class="fa-solid fa-weight-hanging"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="kpi-max-weight" class="text-2xl font-black text-white">0 kg</span>
+                        <span id="kpi-weight-diff" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">--</span>
+                    </div>
+                    <p id="kpi-max-weight-description" class="text-[11px] text-slate-500 mt-1">Poids max sur 1 série</p>
+                </div>
+
+                <!-- Volume Total -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                    <div class="flex justify-between items-start">
+                        <span id="kpi-volume-label" class="text-xs font-medium text-slate-400 uppercase tracking-wider">Volume Total (60 jours)</span>
+                        <div class="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+                            <i class="fa-solid fa-layer-group"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="kpi-volume" class="text-2xl font-black text-white">0 kg</span>
+                        <span id="kpi-volume-diff" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">--</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-1">Somme de (Charge × Reps)</p>
+                </div>
+
+                <!-- Reps & Repos Moyen -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Moyenne Reps / Repos</span>
+                        <div class="p-2 rounded-xl bg-amber-500/10 text-amber-400">
+                            <i class="fa-solid fa-stopwatch"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="kpi-avg-reps" class="text-xl font-black text-white">0 reps</span>
+                        <span class="text-slate-600">|</span>
+                        <span id="kpi-avg-rest" class="text-xl font-black text-amber-400">0s</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-1">Moyenne observée par série</p>
+                </div>
+            </div>
+
+            <!-- Graphiques Interactifs Chart.js -->
+            <div class="grid grid-cols-1 gap-6">
+                <!-- Graphique de Charge & 1RM -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-emerald-400"></i> <span id="progression-chart-title">Évolution de la Charge & 1RM Estimé sur les 60 Derniers Jours</span>
+                    </h3>
+                    <p id="progression-chart-hint" class="text-xs text-slate-400 -mt-2 mb-3">Survolez un point vert pour voir le détail de chaque série.</p>
+                    <div class="relative flex-grow h-72">
+                        <canvas id="chart-progression"></canvas>
+                    </div>
+                </div>
+
+                <!-- Graphique de Volume -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-simple text-indigo-400"></i> <span id="volume-chart-title">Volume Total par Séance sur les 60 Derniers Jours (kg)</span>
+                    </h3>
+                    <div class="relative flex-grow h-72">
+                        <canvas id="chart-volume"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chart-window-controls" class="hidden bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 shadow-xl">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <label id="chart-window-label" for="chart-window-slider" class="text-xs font-medium text-slate-300">Dates affichées</label>
+                    <button id="chart-window-toggle" type="button" onclick="toggleChartPointLimit()" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:border-emerald-500 focus:outline-none focus:border-emerald-500">Tout afficher</button>
+                </div>
+                <input id="chart-window-slider" type="range" min="0" max="0" value="0" step="1" oninput="setChartWindow(this.value)" aria-label="Naviguer entre les dates des graphiques" class="w-full accent-emerald-500">
+            </div>
+
+            <!-- Tableau comparatif des périodes -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-scale-balanced text-amber-400"></i> Bilan Comparatif détaillé par période
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[1500px] text-left text-xs">
+                        <thead id="comparative-table-head" class="bg-slate-950 text-slate-400 uppercase border-b border-slate-800"></thead>
+                        <tbody id="comparative-table-body" class="divide-y divide-slate-800/60">
+                            <!-- JS Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Progression des imports et exports -->
+    <div id="progress-overlay" class="hidden fixed inset-0 z-[100] items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md" role="status" aria-live="polite" aria-hidden="true">
+        <div class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+            <div class="flex items-center justify-between gap-4">
+                <h2 id="progress-title" class="text-base font-bold text-white">Traitement en cours</h2>
+                <span id="progress-percent" class="font-mono text-sm font-bold text-emerald-400">00.00%</span>
+            </div>
+            <div class="relative mt-4 h-3 overflow-hidden rounded-full bg-slate-800" role="progressbar" aria-label="Progression de l'opération" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div id="progress-fill" class="absolute inset-y-0 left-0 rounded-full bg-emerald-500 transition-[width] duration-200" style="width: 0%"></div>
+                <div class="progress-sweep absolute inset-y-0 left-0 w-1/3 bg-white/25"></div>
+            </div>
+            <p id="progress-status" class="mt-3 text-xs text-slate-400">Préparation...</p>
+        </div>
+    </div>
+
+    <!-- Message de Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-emerald-500 text-slate-950 px-4 py-3 rounded-xl shadow-2xl font-bold text-xs flex items-center space-x-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-base"></i>
+        <span id="toast-message">Notification</span>
+        <button id="toast-undo" type="button" onclick="undoLastDeletion()" class="hidden underline underline-offset-2 hover:opacity-80">Annuler</button>
+    </div>
+
+    <!-- Script Application Local -->
+    <script>
+        // État Global
+        let workoutData = [];
+        let currentSortField = 'date';
+        let currentSortOrder = 'desc';
+        let currentTablePage = 1;
+        let tablePageCount = 1;
+        const tablePageSize = 100;
+        const defaultSessionTypes = ["Push", "Pull", "Leg", "Upper", "Lower", "Full Body", "Autre"];
+        const analyticsPeriods = [
+            { value: '30d', label: '30 derniers jours', shortLabel: '30 jours', days: 30 },
+            { value: '60d', label: '60 derniers jours', shortLabel: '60 jours', days: 60 },
+            { value: '3m', label: '3 derniers mois', shortLabel: '3 mois', months: 3 },
+            { value: '6m', label: '6 derniers mois', shortLabel: '6 mois', months: 6 },
+            { value: '9m', label: '9 derniers mois', shortLabel: '9 mois', months: 9 },
+            { value: '12m', label: '12 derniers mois', shortLabel: '12 mois', months: 12 },
+            { value: '24m', label: '2 dernières années', shortLabel: '2 ans', months: 24 },
+            { value: '36m', label: '3 dernières années', shortLabel: '3 ans', months: 36 },
+            { value: '48m', label: '4 dernières années', shortLabel: '4 ans', months: 48 }
+        ];
+        let tableRenderTimer = null;
+        let progressionChartInstance = null;
+        let volumeChartInstance = null;
+        let chartDataModel = null;
+        let chartWindowStart = 0;
+        let showAllChartPoints = false;
+        const chartPointLimit = 20;
+        let progressHideTimer = null;
+        let toastHideTimer = null;
+        let undoDeleteTimer = null;
+        let pendingUndoDelete = null;
+        let customExercises = [];
+        let removedExercises = [];
+        let customFormats = [];
+        let exerciseActionMode = null;
+        const customExercisesStorageKey = 'iron_tracker_custom_exercises';
+        const removedExercisesStorageKey = 'iron_tracker_removed_exercises';
+        const customFormatsStorageKey = 'iron_tracker_custom_formats';
+        const defaultFormats = ['x1', 'x2', 'x3', 'x5', 'x6'];
+
+        const exerciseCatalog = [
+            "Développé couché bench",
+            "Développé couché haltères",
+            "Développé couché machine guidée",
+            "Développé assis pec / Chest press",
+            "Développé militaire haltères",
+            "Développé militaire machine poids libre",
+            "Développé militaire debout barre",
+            "Développé militaire Smith Machine",
+            "Développé incliné Smith Machine",
+            "Développé incliné machine convergente",
+            "Développé incliné bench",
+            "Développé décliné machine",
+            "Développé décliné bench",
+            "Ecarté bench haltères",
+            "Ecarté poulie assis / Pec fly poulie",
+            "Elévations latérales poulie",
+            "Elévations latérales haltères",
+            "Elévations latérales haltères assis banc 2-3",
+            "Extensions triceps barre EZ",
+            "Extensions triceps poulie basse corde",
+            "Extensions triceps poulie haute corde",
+            "Extensions triceps poulie haute barre",
+            "Extensions triceps couché haltères",
+            "Extensions triceps poulie haute fourche",
+            "Extensions triceps poulie haute unilatéral",
+            "Extensions triceps poulie basse unilatéral",
+            "Développé pec machine",
+            "Développé militaire machine",
+            "Développé incliné haltères",
+            "Ecarté poulie unilatéral debout",
+            "Dips",
+            "Dips machine",
+            "Développé semi-incliné 15°",
+            "Pec fly / Pec deck",
+            "Pec fly haltères",
+            "Pompes",
+            "Tirage bucheron haltères",
+            "Tirage vertical machine barre",
+            "Tirage vertical machine guidée",
+            "Tirage vertical prise buffle",
+            "Tirage vertical prise serrée",
+            "Tirage vertical prise serrée poulie",
+            "Tirage vertical machine prise neutre",
+            "Tirage horizontal machine droite",
+            "Tirage unilatéral assis poulie haute",
+            "Tirage double poignée assis poulie haute",
+            "Tirage vertical 2 poignées",
+            "Tirage horizontal poulie",
+            "Tirage horizontal poulie prise neutre mi-large",
+            "Tirage horizontal poulie unilatéral",
+            "Tirage horizontal machine basse",
+            "Tirage horizontal machine basse unilatéral",
+            "Tirage horizontal Smith Machine",
+            "Tirage agenouillé unilatéral",
+            "Extensions lombaires",
+            "Shrug debout",
+            "Shrug banc incliné",
+            "Elévations arrière poulie",
+            "Pec deck inversé / Rear delt",
+            "Pec deck inversé / Rear delt poulie",
+            "Bayesian curl",
+            "Bayesian curl unilatéral",
+            "Curl marteau haltères",
+            "Curl pupitre machine",
+            "Curl pupitre poulie",
+            "Curl marteau poulie",
+            "Curl barre EZ",
+            "Curl barre poulie",
+            "Tractions",
+            "Rowing buste penché barre",
+            "Rowing buste penché Smith",
+            "Rowing sur banc haltères",
+            "Poignée poulie",
+            "Lat pullover corde / barre courte",
+            "Lat pullover barre longue",
+            "Face pull / Pull face poulie",
+            "Curl assis banc incliné - Bayesian curl haltères",
+            "Rowing T-bar prise serrée",
+            "Spider curl barre EZ",
+            "Hack squat",
+            "Squat",
+            "Squat Smith Machine",
+            "Hip thrust machine",
+            "Romanian deadlift barre / RDL barre",
+            "Romanian deadlift haltères / RDL haltères",
+            "Good morning barre",
+            "Split squat haltères / Fentes bulgares haltères",
+            "Fentes marchées haltères",
+            "Leg press machine",
+            "Leg press machine unilatéral",
+            "Prone leg curl",
+            "Leg extension",
+            "Leg press",
+            "Seated leg curl",
+            "Extensions mollets machine perfect squat",
+            "Elevations mollet leg press machine",
+            "Machine adducteurs",
+            "Machine abducteurs",
+            "Extensions mollet prone leg curl",
+            "Extensions mollet Smith machine",
+            "Extensions mollet surélevé haltères",
+            "Abdominal crunch machine",
+            "Machine calf raise",
+            "Roue abdo",
+            "Crunch abdo poulie",
+            "Muscle up"
+        ];
+
+        // Générateur de dates dynamiques pour la démo
+        function getRelativeDate(daysAgo) {
+            const d = new Date();
+            d.setDate(d.getDate() - daysAgo);
+            return d.toISOString().split('T')[0];
+        }
+
+        // Données d'exemple pré-chargées
+        const sampleDemoData = [
+            // Exemples répartis entre la période précédente et la période récente
+            { id: 101, date: getRelativeDate(55), type: "Push", exercise: "Développé couché", setNumber: 1, weight: 75, reps: 10, rest: 90, notes: "Reprise" },
+            { id: 104, date: getRelativeDate(45), type: "Push", exercise: "Développé couché", setNumber: 1, weight: 77.5, reps: 10, rest: 90, notes: "" },
+            { id: 201, date: getRelativeDate(25), type: "Push", exercise: "Développé couché", setNumber: 1, weight: 82.5, reps: 10, rest: 90, notes: "Sensations top" },
+            { id: 210, date: getRelativeDate(2), type: "Push", exercise: "Développé couché", setNumber: 1, weight: 90, reps: 8, rest: 90, notes: "Séance lourde" },
+            { id: 212, date: getRelativeDate(2), type: "Push", exercise: "Développé couché", setNumber: 3, weight: 95, reps: 4, rest: 150, notes: "Formidable !" }
+        ];
+
+        // Initialisation de l'application
+        window.addEventListener('DOMContentLoaded', () => {
+            // Définir la date du jour sur le formulaire
+            document.getElementById('input-date').value = new Date().toISOString().split('T')[0];
+            
+            // Charger les données du localStorage
+            loadData();
+            loadCustomExercises();
+            loadRemovedExercises();
+            loadCustomFormats();
+            
+            // Rendu initial
+            renderTable();
+            populateExerciseDropdowns();
+            populateFormatOptions();
+            updateFormatAvailability();
+            updateEntryCityForDate();
+            const tableBody = document.getElementById('table-body');
+            tableBody.addEventListener('dblclick', event => {
+                const cell = event.target.closest('td[data-field]');
+                if (cell) editTableCell(cell);
+            });
+            tableBody.addEventListener('keydown', event => {
+                if (event.key === 'Enter' && event.target.matches('td[data-field]')) {
+                    event.preventDefault();
+                    editTableCell(event.target);
+                }
+            });
+            tableBody.addEventListener('click', event => {
+                const deleteButton = event.target.closest('[data-delete-id]');
+                if (!deleteButton) return;
+                const item = workoutData.find(entry => String(entry.id) === deleteButton.dataset.deleteId);
+                if (item) deleteEntry(item.id);
+            });
+            
+            // Paramètres globaux Chart.js
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.font.family = 'sans-serif';
+        });
+
+        // Gestion des Onglets
+        function switchTab(tab) {
+            const trackerSec = document.getElementById('section-tracker');
+            const analyticsSec = document.getElementById('section-analytics');
+            const trackerBtn = document.getElementById('tab-tracker-btn');
+            const analyticsBtn = document.getElementById('tab-analytics-btn');
+
+            if (tab === 'tracker') {
+                trackerSec.classList.remove('hidden');
+                analyticsSec.classList.add('hidden');
+                trackerBtn.className = "flex items-center space-x-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all bg-emerald-500 text-slate-950 shadow";
+                analyticsBtn.className = "flex items-center space-x-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-white";
+                renderTable();
+            } else {
+                trackerSec.classList.add('hidden');
+                analyticsSec.classList.remove('hidden');
+                analyticsBtn.className = "flex items-center space-x-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all bg-emerald-500 text-slate-950 shadow";
+                trackerBtn.className = "flex items-center space-x-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-white";
+                populateExerciseDropdowns();
+                updateAnalytics();
+            }
+        }
+
+        // Formule Epley: 1RM = Weight * (1 + Reps / 30)
+        function calculate1RM(weight, reps) {
+            if (reps === 1) return weight;
+            return Math.round(weight * (1 + reps / 30) * 10) / 10;
+        }
+
+        // Sauvegarde et Chargement LocalStorage
+        function saveData() {
+            localStorage.setItem('iron_tracker_local_db', JSON.stringify(workoutData));
+        }
+
+        function loadData() {
+            const saved = localStorage.getItem('iron_tracker_local_db');
+            if (saved) {
+                try {
+                    workoutData = markDemoEntries(normalizeExerciseOrders(filterDemoEntries(JSON.parse(saved))));
+                } catch(e) {
+                    workoutData = markDemoEntries(normalizeExerciseOrders([...sampleDemoData]));
+                }
+            } else {
+                workoutData = markDemoEntries(normalizeExerciseOrders([...sampleDemoData]));
+                saveData();
+            }
+        }
+
+        function normalizeExerciseOrders(entries) {
+            const ordersBySession = new Map();
+            const maxOrderBySession = new Map();
+
+            entries.forEach(entry => {
+                if (entry.type === 'Legs') entry.type = 'Leg';
+                const sessionKey = JSON.stringify([entry.date, entry.type]);
+                if (!ordersBySession.has(sessionKey)) ordersBySession.set(sessionKey, new Map());
+                const exerciseOrders = ordersBySession.get(sessionKey);
+                const order = parseInt(entry.exerciseOrder, 10);
+                if (Number.isInteger(order) && order > 0 && !exerciseOrders.has(entry.exercise)) {
+                    exerciseOrders.set(entry.exercise, order);
+                    maxOrderBySession.set(sessionKey, Math.max(maxOrderBySession.get(sessionKey) || 0, order));
+                }
+            });
+
+            entries.forEach(entry => {
+                const sessionKey = JSON.stringify([entry.date, entry.type]);
+                const exerciseOrders = ordersBySession.get(sessionKey);
+                if (!exerciseOrders.has(entry.exercise)) {
+                    const nextOrder = (maxOrderBySession.get(sessionKey) || 0) + 1;
+                    exerciseOrders.set(entry.exercise, nextOrder);
+                    maxOrderBySession.set(sessionKey, nextOrder);
+                }
+                entry.exerciseOrder = exerciseOrders.get(entry.exercise);
+            });
+
+            return entries;
+        }
+
+        function markDemoEntries(entries) {
+            const demoIds = new Set(sampleDemoData.map(entry => String(entry.id)));
+            return entries.map(entry => ({
+                ...entry,
+                isDemo: demoIds.has(String(entry.id))
+            }));
+        }
+
+        function filterDemoEntries(entries) {
+            const activeDemoIds = new Set(sampleDemoData.map(entry => String(entry.id)));
+            const previousDemoIds = new Set([
+                101, 102, 103, 104, 105, 106, 107, 108,
+                201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212
+            ]);
+            return entries.filter(entry => {
+                const id = String(entry.id);
+                const isDemo = entry.isDemo === true || previousDemoIds.has(id);
+                return !isDemo || activeDemoIds.has(id);
+            });
+        }
+
+        function stripCsvImportMarker(entry) {
+            const { isLastCsvImport, ...data } = entry;
+            return data;
+        }
+
+        function loadCustomExercises() {
+            const saved = localStorage.getItem(customExercisesStorageKey);
+            if (!saved) return;
+
+            try {
+                const parsed = JSON.parse(saved);
+                if (!Array.isArray(parsed) || parsed.some(exercise => typeof exercise !== 'string')) {
+                    throw new Error('Format de liste invalide');
+                }
+                customExercises = [...new Set(parsed.map(exercise => exercise.trim()).filter(Boolean))];
+            } catch (error) {
+                customExercises = [];
+                showToast("Impossible de charger les exercices personnalisés", "error");
+            }
+        }
+
+        function loadRemovedExercises() {
+            const saved = localStorage.getItem(removedExercisesStorageKey);
+            if (!saved) return;
+
+            try {
+                const parsed = JSON.parse(saved);
+                if (!Array.isArray(parsed) || parsed.some(exercise => typeof exercise !== 'string')) {
+                    throw new Error('Format de liste invalide');
+                }
+                removedExercises = [...new Set(parsed.map(exercise => exercise.trim()).filter(Boolean))];
+            } catch (error) {
+                removedExercises = [];
+                showToast("Impossible de charger les exercices supprimés", "error");
+            }
+        }
+
+        function loadCustomFormats() {
+            const saved = localStorage.getItem(customFormatsStorageKey);
+            if (!saved) return;
+
+            try {
+                const parsed = JSON.parse(saved);
+                if (!Array.isArray(parsed) || parsed.some(format => typeof format !== 'string')) {
+                    throw new Error('Format de liste invalide');
+                }
+                customFormats = [...new Set(parsed.map(format => format.trim()).filter(Boolean))]
+                    .filter(format => !defaultFormats.some(defaultFormat =>
+                        defaultFormat.toLocaleLowerCase('fr') === format.toLocaleLowerCase('fr')
+                    ));
+            } catch (error) {
+                customFormats = [];
+                showToast("Impossible de charger les formats personnalisés", "error");
+            }
+        }
+
+        function populateFormatOptions() {
+            const formats = [...defaultFormats, ...customFormats];
+            document.getElementById('format-list').innerHTML = formats
+                .map(format => `<option value="${escapeHtml(format)}">`)
+                .join('');
+        }
+
+        function rememberCustomFormat(enteredFormat) {
+            const format = String(enteredFormat || '').trim();
+            if (!format || [...defaultFormats, ...customFormats].some(existing =>
+                existing.toLocaleLowerCase('fr') === format.toLocaleLowerCase('fr')
+            )) return true;
+
+            const updatedFormats = [...customFormats, format];
+            try {
+                localStorage.setItem(customFormatsStorageKey, JSON.stringify(updatedFormats));
+            } catch (error) {
+                showToast("Le format est enregistré, mais n'a pas pu être ajouté aux suggestions", "error");
+                return false;
+            }
+
+            customFormats = updatedFormats;
+            populateFormatOptions();
+            return true;
+        }
+
+        function updateFormatAvailability() {
+            const objective = document.getElementById('input-objective').value.trim().toLocaleLowerCase('fr');
+            const formatInput = document.getElementById('input-format');
+            const isForceObjective = objective === 'force';
+            formatInput.disabled = !isForceObjective;
+            if (!isForceObjective) formatInput.value = '';
+        }
+
+        function capitalizeObjective(value) {
+            return String(value || '').trim().replace(/(^|[\s-])([a-zà-öø-ÿ])/giu, (match, separator, letter) =>
+                separator + letter.toLocaleUpperCase('fr')
+            );
+        }
+
+        function capitalizeObjectiveInput() {
+            const input = document.getElementById('input-objective');
+            input.value = capitalizeObjective(input.value);
+            updateFormatAvailability();
+        }
+
+        function openExerciseAction(mode) {
+            exerciseActionMode = mode;
+            document.getElementById('exercise-action-label').textContent =
+                mode === 'add' ? "Nom du nouvel exercice" : "Exercice à supprimer des suggestions";
+            document.getElementById('exercise-action-submit').textContent =
+                mode === 'add' ? "Ajouter" : "Supprimer";
+            document.getElementById('exercise-action-input').value = '';
+            document.getElementById('exercise-action-panel').classList.remove('hidden');
+            document.getElementById('exercise-action-input').focus();
+        }
+
+        function closeExerciseAction() {
+            document.getElementById('exercise-action-panel').classList.add('hidden');
+            document.getElementById('exercise-action-input').value = '';
+            exerciseActionMode = null;
+        }
+
+        function submitExerciseAction() {
+            const exercise = document.getElementById('exercise-action-input').value;
+            if (exerciseActionMode === 'add') addExercise(exercise);
+            else if (exerciseActionMode === 'remove') removeExercise(exercise);
+        }
+
+        function addExercise(enteredName) {
+            const exercise = String(enteredName || '').trim();
+            if (!exercise) {
+                showToast("Le nom de l'exercice ne peut pas être vide", "error");
+                return;
+            }
+
+            const existingExercises = [...exerciseCatalog, ...customExercises, ...workoutData.map(item => item.exercise)];
+            const normalizedExercise = exercise.toLocaleLowerCase('fr');
+            const removedExercise = removedExercises.find(name => name.toLocaleLowerCase('fr') === normalizedExercise);
+            if (removedExercise) {
+                const updatedRemovedExercises = removedExercises.filter(name => name !== removedExercise);
+                try {
+                    localStorage.setItem(removedExercisesStorageKey, JSON.stringify(updatedRemovedExercises));
+                } catch (error) {
+                    showToast("Impossible de réactiver cet exercice", "error");
+                    return;
+                }
+                removedExercises = updatedRemovedExercises;
+                populateExerciseDropdowns();
+                document.getElementById('input-exercise').value = removedExercise;
+                showToast("Exercice réactivé dans les suggestions !");
+                closeExerciseAction();
+                return;
+            }
+
+            if (existingExercises.some(name => name.trim().toLocaleLowerCase('fr') === normalizedExercise)) {
+                showToast("Cet exercice existe déjà dans la liste", "info");
+                return;
+            }
+
+            const updatedExercises = [...customExercises, exercise];
+            try {
+                localStorage.setItem(customExercisesStorageKey, JSON.stringify(updatedExercises));
+            } catch (error) {
+                showToast("Impossible d'enregistrer cet exercice", "error");
+                return;
+            }
+
+            customExercises = updatedExercises;
+            populateExerciseDropdowns();
+            document.getElementById('input-exercise').value = exercise;
+            showToast("Exercice ajouté aux suggestions !");
+            closeExerciseAction();
+        }
+
+        function removeExercise(enteredName) {
+            const selectedName = String(enteredName || '').trim();
+            if (!selectedName) {
+                showToast("Choisis un exercice à supprimer", "info");
+                return;
+            }
+
+            const exercises = [...new Set([
+                ...exerciseCatalog,
+                ...customExercises,
+                ...workoutData.map(item => item.exercise)
+            ])].filter(Boolean);
+            const exercise = exercises.find(name => name.toLocaleLowerCase('fr') === selectedName.toLocaleLowerCase('fr'));
+            if (!exercise || removedExercises.some(name => name.toLocaleLowerCase('fr') === exercise.toLocaleLowerCase('fr'))) {
+                showToast("Cet exercice n'est pas dans les suggestions", "info");
+                return;
+            }
+
+            if (!window.confirm(`Retirer « ${exercise} » des suggestions ? Les séries déjà enregistrées seront conservées.`)) return;
+
+            const updatedRemovedExercises = [...removedExercises, exercise];
+            try {
+                localStorage.setItem(removedExercisesStorageKey, JSON.stringify(updatedRemovedExercises));
+            } catch (error) {
+                showToast("Impossible de supprimer cet exercice des suggestions", "error");
+                return;
+            }
+
+            removedExercises = updatedRemovedExercises;
+            populateExerciseDropdowns();
+            document.getElementById('input-exercise').value = '';
+            showToast("Exercice supprimé des suggestions");
+            closeExerciseAction();
+        }
+
+        function loadDemoData() {
+            if (confirm("Voulez-vous ajouter les données de démonstration à vos séries ?")) {
+                const existingData = filterDemoEntries(workoutData);
+                const existingIds = new Set(existingData.map(item => String(item.id)));
+                const newDemoEntries = sampleDemoData.filter(item => !existingIds.has(String(item.id)));
+                workoutData = markDemoEntries(normalizeExerciseOrders([...existingData, ...newDemoEntries]));
+                saveData();
+                renderTable();
+                populateExerciseDropdowns();
+                showToast(
+                    newDemoEntries.length ? "Données de démo ajoutées sans supprimer vos séries !" : "Les données de démo sont déjà présentes",
+                    newDemoEntries.length ? "success" : "info"
+                );
+            }
+        }
+
+        function clearDemoData() {
+            const demoCount = workoutData.filter(item => item.isDemo).length;
+            if (!demoCount) {
+                showToast("Aucune donnée de démonstration à supprimer", "info");
+                return;
+            }
+
+            if (!confirm(`Supprimer les ${demoCount} série${demoCount > 1 ? 's' : ''} de démonstration ? Vos séries personnelles seront conservées.`)) return;
+
+            workoutData = workoutData.filter(item => !item.isDemo);
+            saveData();
+            renderTable();
+            populateExerciseDropdowns();
+            showToast(`${demoCount} série${demoCount > 1 ? 's' : ''} de démonstration supprimée${demoCount > 1 ? 's' : ''}`, "info");
+        }
+
+        function clearAllData() {
+            if (confirm("Voulez-vous vraiment vider toutes vos séries ?")) {
+                workoutData = [];
+                saveData();
+                renderTable();
+                populateExerciseDropdowns();
+                showToast("Toutes les séries ont été effacées", "info");
+            }
+        }
+
+        function adjustInputWeight(delta) {
+            const input = document.getElementById('input-weight');
+            const currentValue = input.value.trim();
+            const normalizedValue = currentValue.replace(',', '.');
+            if (currentValue && (!/^\d+(?:\.\d)?$/.test(normalizedValue) || !Number.isFinite(Number(normalizedValue)))) {
+                showToast("La charge doit être un nombre positif avec au plus une décimale", "error");
+                input.focus();
+                return;
+            }
+
+            const currentWeight = currentValue ? Number(normalizedValue) : 0;
+            const nextWeight = Math.max(0, Math.round((currentWeight + delta) * 10) / 10);
+            const separator = currentValue.includes(',') ? ',' : '.';
+            input.value = String(nextWeight).replace('.', separator);
+            input.focus();
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        // Ajouter une nouvelle série
+        function handleAddEntry(event) {
+            event.preventDefault();
+            capitalizeObjectiveInput();
+
+            const date = document.getElementById('input-date').value;
+            const type = document.getElementById('input-type').value;
+            const exercise = document.getElementById('input-exercise').value.trim();
+            const weightInput = document.getElementById('input-weight');
+            const normalizedWeight = weightInput.value.trim().replace(',', '.');
+            const weight = Number(normalizedWeight);
+            if (!/^\d+(?:\.\d)?$/.test(normalizedWeight) || !Number.isFinite(weight)) {
+                showToast("La charge doit être un nombre positif avec au plus une décimale", "error");
+                weightInput.focus();
+                return;
+            }
+            const objective = capitalizeObjective(document.getElementById('input-objective').value);
+            const format = objective.toLocaleLowerCase('fr') === 'force'
+                ? document.getElementById('input-format').value.trim()
+                : '';
+            const enteredCity = document.getElementById('input-city').value.trim();
+            const previousEntrySameDate = [...workoutData].reverse().find(item =>
+                item.date === date && typeof item.city === 'string' && item.city.trim()
+            );
+            const sameSessionEntries = workoutData.filter(item => item.date === date && item.type === type);
+            const existingExercise = sameSessionEntries.find(item => item.exercise === exercise);
+            const exerciseOrder = existingExercise
+                ? existingExercise.exerciseOrder
+                : Math.max(0, ...sameSessionEntries.map(item => parseInt(item.exerciseOrder, 10) || 0)) + 1;
+
+            const newEntry = {
+                id: Date.now(),
+                date,
+                city: enteredCity || (previousEntrySameDate ? previousEntrySameDate.city : ''),
+                type,
+                objective,
+                format,
+                exercise,
+                exerciseOrder,
+                setNumber: parseInt(document.getElementById('input-set').value) || 1,
+                weight,
+                reps: parseInt(document.getElementById('input-reps').value) || 0,
+                rpe: document.getElementById('input-rpe').value.trim(),
+                rest: parseInt(document.getElementById('input-rest').value) || 0,
+                notes: document.getElementById('input-notes').value.trim()
+            };
+
+            const formatSuggestionSaved = rememberCustomFormat(newEntry.format);
+            workoutData.push(newEntry);
+            saveData();
+            renderTable();
+            populateExerciseDropdowns();
+            document.getElementById('input-city').value = newEntry.city;
+
+            // Auto-Incrément du N° de Série pour la saisie suivante
+            document.getElementById('input-set').value = newEntry.setNumber + 1;
+            if (formatSuggestionSaved) showToast("Série enregistrée !");
+        }
+
+        // Supprimer une série
+        function deleteEntry(id) {
+            const deletedIndex = workoutData.findIndex(item => item.id === id);
+            if (deletedIndex < 0) return;
+            const [deletedEntry] = workoutData.splice(deletedIndex, 1);
+            pendingUndoDelete = { entry: deletedEntry, index: deletedIndex };
+            saveData();
+            renderTable();
+            populateExerciseDropdowns();
+            showDeleteUndoToast();
+        }
+
+        function undoLastDeletion() {
+            if (!pendingUndoDelete) return;
+            const { entry, index } = pendingUndoDelete;
+            if (workoutData.some(item => String(item.id) === String(entry.id))) {
+                pendingUndoDelete = null;
+                clearTimeout(undoDeleteTimer);
+                document.getElementById('toast-undo').classList.add('hidden');
+                showToast("Impossible d'annuler : cette série existe déjà", "error");
+                return;
+            }
+
+            clearTimeout(undoDeleteTimer);
+            pendingUndoDelete = null;
+            workoutData.splice(Math.min(index, workoutData.length), 0, entry);
+            saveData();
+            currentTablePage = 1;
+            renderTable();
+            populateExerciseDropdowns();
+            showToast("Suppression annulée", "info");
+        }
+
+        function deleteLastCsvImport() {
+            const lastImportEntries = workoutData.filter(item => item.isLastCsvImport);
+            if (!lastImportEntries.length) {
+                showToast("Aucun import CSV à supprimer", "info");
+                return;
+            }
+
+            const count = lastImportEntries.length;
+            if (!window.confirm(`Supprimer uniquement les ${count} série(s) du dernier import CSV ? Les autres données seront conservées.`)) return;
+
+            workoutData = workoutData.filter(item => !item.isLastCsvImport);
+            saveData();
+            currentTablePage = 1;
+            renderTable();
+            populateExerciseDropdowns();
+            showToast(`${count} série(s) du dernier import CSV supprimée(s).`, "info");
+        }
+
+        // Édition Inline Directe
+        function updateField(id, field, value) {
+            const item = workoutData.find(d => d.id === id);
+            if (item) {
+                let formatSuggestionSaved = true;
+                if (field === 'exerciseOrder') {
+                    const order = parseInt(value, 10);
+                    if (!Number.isInteger(order) || order < 1) {
+                        showToast("Le n° exercice doit être supérieur à 0", "error");
+                        renderTable();
+                        return;
+                    }
+                    workoutData
+                        .filter(entry => entry.date === item.date && entry.type === item.type && entry.exercise === item.exercise)
+                        .forEach(entry => entry.exerciseOrder = order);
+                    renderTable();
+                } else if (['weight', 'reps', 'rest', 'setNumber'].includes(field)) {
+                    item[field] = parseFloat(value) || 0;
+                } else {
+                    item[field] = field === 'objective' ? capitalizeObjective(value) : value.trim();
+                    if (field === 'objective' && item.objective.toLocaleLowerCase('fr') !== 'force') {
+                        item.format = '';
+                    }
+                    if (field === 'format') formatSuggestionSaved = rememberCustomFormat(item.format);
+                }
+                if (field === 'city' && item.date === document.getElementById('input-date').value) {
+                    const latestCityEntry = [...workoutData].reverse().find(entry =>
+                        entry.date === item.date && typeof entry.city === 'string' && entry.city.trim()
+                    );
+                    document.getElementById('input-city').value = latestCityEntry ? latestCityEntry.city : '';
+                }
+                saveData();
+                populateExerciseDropdowns();
+                if (formatSuggestionSaved) showToast("Mis à jour avec succès", "success");
+            }
+        }
+
+        // Tri du tableau
+        function sortTable(field) {
+            if (currentSortField === field) {
+                currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortField = field;
+                currentSortOrder = 'desc';
+            }
+            currentTablePage = 1;
+            renderTable();
+        }
+
+        function scheduleTableRender() {
+            currentTablePage = 1;
+            clearTimeout(tableRenderTimer);
+            tableRenderTimer = setTimeout(renderTable, 150);
+        }
+
+        function changeTablePage(offset) {
+            currentTablePage += offset;
+            renderTable();
+        }
+
+        function goToTablePage(page) {
+            currentTablePage = page;
+            renderTable();
+        }
+
+        function goToTablePageFromInput() {
+            const input = document.getElementById('table-page-input');
+            const requestedPage = Number(input.value);
+            if (!Number.isInteger(requestedPage) || requestedPage < 1 || requestedPage > tablePageCount) {
+                input.value = currentTablePage;
+                showToast(`Saisis un numéro de page entre 1 et ${tablePageCount}`, 'error');
+                return;
+            }
+            goToTablePage(requestedPage);
+        }
+
+        function goToLastTablePage() {
+            goToTablePage(tablePageCount);
+        }
+
+        function formatDateForDisplay(date) {
+            const match = String(date || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            return match ? `${match[3]}/${match[2]}/${match[1]}` : String(date || '');
+        }
+
+        function editTableCell(cell) {
+            if (!cell.dataset.field || cell.querySelector('input, select')) return;
+
+            const item = workoutData.find(entry => String(entry.id) === cell.dataset.id);
+            if (!item) return;
+
+            const field = cell.dataset.field;
+            if (field === 'format' && String(item.objective || '').trim().toLocaleLowerCase('fr') !== 'force') return;
+            const input = document.createElement('input');
+            const originalValue = item[field] === undefined || item[field] === null ? '' : item[field];
+            const rpeValue = String(originalValue).trim();
+            const canUseRpeNumberInput = field === 'rpe' && (!rpeValue || /^(?:[0-9]|10)$/.test(rpeValue));
+
+            input.type = field === 'date'
+                ? 'date'
+                : ['exerciseOrder', 'setNumber', 'weight', 'reps', 'rest'].includes(field) || canUseRpeNumberInput
+                    ? 'number'
+                    : 'text';
+            if (field === 'weight') input.step = '0.5';
+            if (field === 'exerciseOrder') input.min = '1';
+            if (canUseRpeNumberInput) {
+                input.min = '0';
+                input.max = '10';
+                input.step = '1';
+            }
+            if (field === 'exercise') input.setAttribute('list', 'exercise-list');
+            if (field === 'city') input.setAttribute('list', 'city-list');
+            if (field === 'type') input.setAttribute('list', 'session-list');
+            if (field === 'objective') input.setAttribute('list', 'objective-list');
+            if (field === 'format') input.setAttribute('list', 'format-list');
+
+            input.value = originalValue;
+            input.className = 'w-full min-w-16 rounded border border-emerald-500 bg-slate-950 px-1.5 py-1 text-xs text-white focus:outline-none';
+            cell.replaceChildren(input);
+            input.focus();
+            if (input.type === 'text' || input.type === 'number') input.select();
+
+            let committed = false;
+            const commit = () => {
+                if (committed) return;
+                committed = true;
+                const value = input.value;
+                if (field === 'rpe' && input.type === 'number' && !input.checkValidity()) {
+                    showToast("Le RPE doit être un nombre entier entre 0 et 10", "error");
+                    renderTable();
+                    return;
+                }
+                if (String(value) !== String(originalValue)) {
+                    updateField(item.id, field, value);
+                }
+                renderTable();
+            };
+            if (!['date', 'rpe'].includes(field)) input.addEventListener('change', commit);
+            input.addEventListener('blur', commit);
+            input.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    input.blur();
+                } else if (event.key === 'Escape') {
+                    committed = true;
+                    renderTable();
+                }
+            });
+        }
+
+        // Affichage paginé du tableau, avec édition à la demande
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            const searchFilters = [1, 2, 3].map(index => ({
+                term: document.getElementById(`filter-search-${index}`).value.trim().toLocaleLowerCase('fr'),
+                column: document.getElementById(`filter-column-${index}`).value,
+                mode: document.getElementById(`filter-search-mode-${index}`).value
+            })).filter(filter => filter.term);
+
+            let filtered = workoutData.filter(item => {
+                const searchableValues = {
+                    date: [item.date, formatDateForDisplay(item.date)],
+                    city: [item.city],
+                    type: [item.type],
+                    objective: [item.objective],
+                    format: [item.format],
+                    exerciseOrder: [item.exerciseOrder],
+                    exercise: [item.exercise],
+                    setNumber: [item.setNumber],
+                    reps: [item.reps],
+                    weight: [item.weight],
+                    rpe: [item.rpe],
+                    rest: [item.rest],
+                    notes: [item.notes]
+                };
+                const allSearchValues = Object.values(searchableValues)
+                    .reduce((values, columnValues) => values.concat(columnValues), []);
+                const matchesSearch = searchFilters.every(filter => {
+                    const searchValues = filter.column ? searchableValues[filter.column] : allSearchValues;
+                    return searchValues.some(value => {
+                        const candidate = String(value == null ? '' : value).trim().toLocaleLowerCase('fr');
+                        return filter.mode === 'exact' ? candidate === filter.term : candidate.includes(filter.term);
+                    });
+                });
+                return matchesSearch;
+            });
+
+            filtered.sort((a, b) => {
+                let valA = a[currentSortField];
+                let valB = b[currentSortField];
+                
+                if (typeof valA === 'string' || typeof valB === 'string') {
+                    valA = String(valA || '');
+                    valB = String(valB || '');
+                    return currentSortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                }
+                return currentSortOrder === 'asc' ? valA - valB : valB - valA;
+            });
+
+            const dateBackgrounds = [
+                'bg-slate-800/40',
+                'bg-sky-950/30',
+                'bg-emerald-950/30',
+                'bg-violet-950/30',
+                'bg-amber-950/20'
+            ];
+            const dates = [...new Set(workoutData.map(item => String(item.date || '')))]
+                .sort((a, b) => a.localeCompare(b));
+            const dateBackgroundByDate = new Map(dates.map((date, index) => [
+                date,
+                dateBackgrounds[index % dateBackgrounds.length]
+            ]));
+
+            document.getElementById('row-count-badge').textContent = `${filtered.length} série${filtered.length > 1 ? 's' : ''}`;
+            const lastCsvImportCount = workoutData.filter(item => item.isLastCsvImport).length;
+            const deleteLastCsvImportButton = document.getElementById('delete-last-csv-import');
+            deleteLastCsvImportButton.disabled = lastCsvImportCount === 0;
+            deleteLastCsvImportButton.title = lastCsvImportCount
+                ? `Supprimer les ${lastCsvImportCount} séries du dernier import CSV`
+                : "Aucun import CSV à supprimer";
+            tablePageCount = Math.max(1, Math.ceil(filtered.length / tablePageSize));
+            currentTablePage = Math.max(1, Math.min(currentTablePage, tablePageCount));
+            const pageInput = document.getElementById('table-page-input');
+            pageInput.max = tablePageCount;
+            pageInput.value = currentTablePage;
+            document.getElementById('table-page-count').textContent = tablePageCount;
+            const pageStart = (currentTablePage - 1) * tablePageSize;
+            const pageItems = filtered.slice(pageStart, pageStart + tablePageSize);
+            document.getElementById('table-page-status').textContent = filtered.length
+                ? `Lignes ${pageStart + 1}–${Math.min(pageStart + tablePageSize, filtered.length)} sur ${filtered.length}`
+                : 'Aucune ligne';
+            document.getElementById('table-previous-page').disabled = currentTablePage === 1;
+            document.getElementById('table-first-page').disabled = currentTablePage === 1;
+            document.getElementById('table-next-page').disabled = currentTablePage === tablePageCount;
+            document.getElementById('table-last-page').disabled = currentTablePage === tablePageCount;
+
+            if (pageItems.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="14" class="py-8 text-center text-slate-500 italic">
+                            Aucune donnée trouvée. Ajoutez une série à l'aide du formulaire ci-dessus.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = pageItems.map((item, index) => {
+                const rowClass = `${dateBackgroundByDate.get(String(item.date || '')) || ''}${item.isDemo ? ' border-l-2 border-orange-400' : ''}`;
+                const previousItem = pageItems[index - 1];
+                const isNewExerciseGroup = previousItem && (
+                    previousItem.date !== item.date ||
+                    previousItem.type !== item.type ||
+                    previousItem.exercise !== item.exercise
+                );
+                const separatorClass = isNewExerciseGroup ? 'border-t border-slate-800/60' : '';
+                const cell = (field, value, classes = '', editable = true) => {
+                    const editAttributes = editable
+                        ? `data-id="${escapeHtml(String(item.id))}" data-field="${field}" tabindex="0" title="Double-cliquer ou appuyer sur Entrée pour modifier"`
+                        : '';
+                    return `<td ${editAttributes} class="py-2 px-3 ${classes}">${escapeHtml(String(value ?? ''))}</td>`;
+                };
+                const isForceObjective = String(item.objective || '').trim().toLocaleLowerCase('fr') === 'force';
+
+                return `
+                    <tr class="${rowClass} ${separatorClass}" title="${item.isDemo ? 'Donnée de démonstration' : ''}">
+                        ${cell('date', formatDateForDisplay(item.date), 'font-mono')}
+                        ${cell('city', item.city || '', 'min-w-[8rem]')}
+                        ${cell('type', item.type, 'font-semibold')}
+                        ${cell('objective', item.objective || '', 'text-slate-400')}
+                        ${cell('format', item.format || '', isForceObjective ? 'text-slate-400' : 'bg-slate-950/50 text-slate-600', isForceObjective)}
+                        ${cell('exerciseOrder', item.exerciseOrder, 'text-center font-mono')}
+                        ${cell('exercise', item.exercise, 'exercise-column font-medium text-white')}
+                        ${cell('setNumber', item.setNumber, 'text-center font-mono')}
+                        ${cell('reps', item.reps, 'text-right font-mono font-bold text-emerald-400')}
+                        ${cell('weight', `${item.weight} kg`, 'text-right font-mono font-bold text-emerald-400')}
+                        ${cell('rpe', item.rpe ?? '', 'text-center font-mono')}
+                        ${cell('rest', `${item.rest} s`, 'text-right font-mono text-slate-400')}
+                        ${cell('notes', item.notes || '', 'text-slate-400')}
+                        <td class="py-2 px-3 text-center">
+                            <button data-delete-id="${escapeHtml(String(item.id))}" class="text-slate-600 hover:text-rose-400 p-1" title="Supprimer la série" aria-label="Supprimer la série">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getTypeBadgeClass(type) {
+            switch(type) {
+                case 'Push': return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+                case 'Pull': return 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20';
+                case 'Leg': return 'bg-purple-500/10 text-purple-400 border border-purple-500/20';
+                case 'Upper': return 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+                case 'Lower': return 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
+                default: return 'bg-slate-800 text-slate-400 border border-slate-700';
+            }
+        }
+
+        function populateExerciseDropdowns() {
+            const exercises = [...new Set(workoutData.map(item => item.exercise))]
+                .filter(Boolean)
+                .sort((a, b) => a.localeCompare(b, 'fr'));
+            
+            const datalist = document.getElementById('exercise-list');
+            const removedExerciseNames = new Set(removedExercises.map(exercise => exercise.toLocaleLowerCase('fr')));
+            const exerciseOptions = [...new Set([...exerciseCatalog, ...customExercises, ...exercises])]
+                .filter(exercise => !removedExerciseNames.has(exercise.toLocaleLowerCase('fr')))
+                .sort((a, b) => a.localeCompare(b, 'fr'));
+            datalist.innerHTML = exerciseOptions.map(ex => `<option value="${escapeHtml(ex)}">`).join('');
+
+            const cities = [...new Set(workoutData
+                .map(item => typeof item.city === 'string' ? item.city.trim() : '')
+                .filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+            document.getElementById('city-list').innerHTML = cities
+                .map(city => `<option value="${escapeHtml(city)}">`)
+                .join('');
+
+            const sessionTypeMap = new Map();
+            [...defaultSessionTypes, ...workoutData.map(item => String(item.type || '').trim())]
+                .forEach(type => {
+                    const normalizedType = String(type || '').trim();
+                    const key = normalizedType.toLocaleLowerCase('fr');
+                    if (normalizedType && !sessionTypeMap.has(key)) {
+                        sessionTypeMap.set(key, normalizedType);
+                    }
+                });
+            const sessionTypes = [...sessionTypeMap.values()]
+                .sort((a, b) => a.localeCompare(b, 'fr'));
+            document.getElementById('session-list').innerHTML = sessionTypes
+                .map(type => `<option value="${escapeHtml(type)}">`)
+                .join('');
+
+        }
+
+        function updateEntryCityForDate() {
+            const date = document.getElementById('input-date').value;
+            const entry = [...workoutData].reverse().find(item =>
+                item.date === date && typeof item.city === 'string' && item.city.trim()
+            );
+            document.getElementById('input-city').value = entry ? entry.city : '';
+        }
+
+        function subtractCalendarMonths(date, months) {
+            const result = new Date(date);
+            const day = result.getDate();
+            result.setDate(1);
+            result.setMonth(result.getMonth() - months);
+            const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+            result.setDate(Math.min(day, lastDay));
+            return result;
+        }
+
+        function getAnalyticsPeriodRange(now, period) {
+            const currentEnd = new Date(now);
+            currentEnd.setHours(23, 59, 59, 999);
+
+            const currentStart = new Date(now);
+            currentStart.setHours(0, 0, 0, 0);
+            if (period.days) {
+                currentStart.setDate(currentStart.getDate() - period.days + 1);
+            } else {
+                const start = subtractCalendarMonths(currentStart, period.months);
+                currentStart.setTime(start.getTime());
+            }
+
+            const previousStart = period.days
+                ? new Date(currentStart)
+                : subtractCalendarMonths(currentStart, period.months);
+            if (period.days) previousStart.setDate(previousStart.getDate() - period.days);
+
+            return { currentStart, currentEnd, previousStart };
+        }
+
+        function getAnalyticsMetrics(data, mode) {
+            const max1RM = mode === 'session' || !data.length
+                ? 0
+                : Math.max(...data.map(d => calculate1RM(d.weight, d.reps)));
+            const maxWeight = mode === 'session' || !data.length
+                ? 0
+                : Math.max(...data.map(d => d.weight));
+            const topSetWeightsByDate = new Map();
+            if (mode !== 'session') {
+                data.forEach(d => {
+                    const currentTopWeight = topSetWeightsByDate.has(d.date)
+                        ? topSetWeightsByDate.get(d.date)
+                        : -Infinity;
+                    topSetWeightsByDate.set(d.date, Math.max(currentTopWeight, d.weight));
+                });
+            }
+            const topSets = data.filter(d => d.weight === topSetWeightsByDate.get(d.date));
+            const minTopSet1RM = topSets.length
+                ? Math.min(...topSets.map(d => calculate1RM(d.weight, d.reps)))
+                : 0;
+            const minTopSetWeight = topSets.length
+                ? Math.min(...topSets.map(d => d.weight))
+                : 0;
+            const oldestDateFor = (records, predicate) => mode === 'session' || !records.length
+                ? null
+                : records
+                    .filter(predicate)
+                    .map(d => d.date)
+                    .sort((a, b) => a.localeCompare(b))[0] || null;
+
+            return {
+                max1RM,
+                max1RMDate: oldestDateFor(data, d => calculate1RM(d.weight, d.reps) === max1RM),
+                min1RM: minTopSet1RM,
+                min1RMDate: oldestDateFor(topSets, d => calculate1RM(d.weight, d.reps) === minTopSet1RM),
+                maxWeight,
+                maxWeightDate: oldestDateFor(data, d => d.weight === maxWeight),
+                minWeight: minTopSetWeight,
+                minWeightDate: oldestDateFor(topSets, d => d.weight === minTopSetWeight),
+                totalVolume: data.reduce((total, d) => total + (d.weight * d.reps), 0),
+                setCount: data.length,
+                sessionCount: new Set(data.map(d => d.date)).size
+            };
+        }
+
+        // LOGIQUE D'ANALYSE & COMPARATIF PAR PÉRIODE
+        function updateAnalytics() {
+            const mode = document.getElementById('analytics-mode-select').value;
+            const sessionMode = mode === 'session';
+            const selectedExercise = document.getElementById('analytics-exercise-select').value.trim();
+            const selectedSession = document.getElementById('analytics-session-select').value.trim();
+            const selectedObjectives = new Set([...document.querySelectorAll('#analytics-objective-filter input:checked')]
+                .map(input => input.value.toLocaleLowerCase('fr')));
+            const matchesObjective = d => !selectedObjectives.size ||
+                selectedObjectives.has(String(d.objective || '').trim().toLocaleLowerCase('fr'));
+            const selectedFormats = new Set([...document.querySelectorAll('#analytics-format-filter input:checked')]
+                .map(input => input.value.toLocaleLowerCase('fr')));
+            const matchesFormat = d => !selectedFormats.size ||
+                selectedFormats.has(String(d.format || '').trim().toLocaleLowerCase('fr'));
+            const notesFilter = document.getElementById('analytics-notes-filter').value.trim().toLocaleLowerCase('fr');
+            const selectedPeriod = analyticsPeriods.find(period =>
+                period.value === document.getElementById('analytics-period-select').value
+            ) || analyticsPeriods[1];
+
+            document.getElementById('analytics-exercise-control').classList.toggle('hidden', sessionMode);
+            document.getElementById('analytics-session-control').classList.toggle('hidden', !sessionMode);
+
+            const eligibleData = workoutData.filter(d =>
+                Number(d.reps) > 0 &&
+                matchesObjective(d) &&
+                matchesFormat(d) &&
+                (!notesFilter || String(d.notes || '').toLocaleLowerCase('fr').includes(notesFilter))
+            );
+            const exerciseOptions = [...new Set(eligibleData.map(d => d.exercise).filter(Boolean))]
+                .sort((a, b) => a.localeCompare(b, 'fr'));
+            const sessionOptions = [...new Set(eligibleData.map(d => String(d.type || '').trim()).filter(Boolean))]
+                .sort((a, b) => a.localeCompare(b, 'fr'));
+            document.getElementById('analytics-exercise-list').innerHTML = exerciseOptions
+                .map(exercise => `<option value="${escapeHtml(exercise)}">`)
+                .join('');
+            document.getElementById('analytics-session-list').innerHTML = sessionOptions
+                .map(session => `<option value="${escapeHtml(session)}">`)
+                .join('');
+
+            const matchesSelection = d => sessionMode
+                ? String(d.type || '').trim().toLocaleLowerCase('fr') === selectedSession.toLocaleLowerCase('fr')
+                : String(d.exercise || '').trim().toLocaleLowerCase('fr') === selectedExercise.toLocaleLowerCase('fr');
+            const selectedData = eligibleData.filter(matchesSelection);
+            const now = new Date();
+            const periodComparisons = analyticsPeriods.map(period => {
+                const range = getAnalyticsPeriodRange(now, period);
+                const currentData = selectedData.filter(d => {
+                    const date = new Date(`${d.date}T00:00:00`);
+                    return date >= range.currentStart && date <= range.currentEnd;
+                });
+                const previousData = selectedData.filter(d => {
+                    const date = new Date(`${d.date}T00:00:00`);
+                    return date >= range.previousStart && date < range.currentStart;
+                });
+                return {
+                    period,
+                    range,
+                    currentData,
+                    currentMetrics: getAnalyticsMetrics(currentData, mode),
+                    previousMetrics: getAnalyticsMetrics(previousData, mode)
+                };
+            });
+            const selectedComparison = periodComparisons.find(comparison =>
+                comparison.period.value === selectedPeriod.value
+            );
+            const currentMetrics = selectedComparison.currentMetrics;
+            const previousMetrics = selectedComparison.previousMetrics;
+            const currentPeriodData = selectedComparison.currentData;
+            const currAvgReps = currentPeriodData.length
+                ? (currentPeriodData.reduce((total, d) => total + Number(d.reps), 0) / currentPeriodData.length).toFixed(1)
+                : 0;
+            const currAvgRest = currentPeriodData.length
+                ? Math.round(currentPeriodData.reduce((total, d) => total + (Number(d.rest) || 0), 0) / currentPeriodData.length)
+                : 0;
+            const periodLabel = selectedPeriod.label;
+
+            document.getElementById('kpi-1rm-label').textContent = sessionMode
+                ? `Séances effectuées (${selectedPeriod.shortLabel})`
+                : 'Meilleur 1RM estimé (Epley)';
+            document.getElementById('kpi-1rm-description').textContent = sessionMode
+                ? 'Nombre de séances de ce type'
+                : currentMetrics.max1RMDate
+                    ? `Meilleure série du ${formatDateForDisplay(currentMetrics.max1RMDate)}`
+                    : 'Aucune série sur la période';
+            document.getElementById('kpi-max-weight-label').textContent = sessionMode
+                ? `Séries réalisées (${selectedPeriod.shortLabel})`
+                : 'Charge Max Soulevée';
+            document.getElementById('kpi-max-weight-description').textContent = sessionMode
+                ? 'Séries avec au moins 1 répétition'
+                : currentMetrics.maxWeightDate
+                    ? `Série du ${formatDateForDisplay(currentMetrics.maxWeightDate)}`
+                    : 'Aucune série sur la période';
+            document.getElementById('kpi-volume-label').textContent = `Volume Total (${selectedPeriod.shortLabel})`;
+            document.getElementById('progression-chart-title').textContent = sessionMode
+                ? `Volume total par séance sur les ${periodLabel}`
+                : `Évolution de la Charge & 1RM Estimé sur les ${periodLabel}`;
+            document.getElementById('volume-chart-title').textContent = sessionMode
+                ? `Nombre de séries par séance sur les ${periodLabel}`
+                : `Volume Total par Séance sur les ${periodLabel} (kg)`;
+            document.getElementById('progression-chart-hint').textContent = sessionMode
+                ? 'Survolez un point pour voir les séries de cette séance, y compris celles à 0 répétition.'
+                : 'Survolez un point vert pour voir chaque série, y compris celles à 0 répétition.';
+
+            document.getElementById('kpi-1rm').textContent = sessionMode
+                ? `${currentMetrics.sessionCount}`
+                : `${currentMetrics.max1RM} kg`;
+            document.getElementById('kpi-max-weight').textContent = sessionMode
+                ? `${currentMetrics.setCount}`
+                : `${currentMetrics.maxWeight} kg`;
+            document.getElementById('kpi-volume').textContent = `${currentMetrics.totalVolume.toLocaleString()} kg`;
+            document.getElementById('kpi-avg-reps').textContent = `${currAvgReps} reps`;
+            document.getElementById('kpi-avg-rest').textContent = `${currAvgRest}s`;
+
+            renderDiffBadge(
+                'kpi-1rm-diff',
+                sessionMode ? currentMetrics.sessionCount : currentMetrics.max1RM,
+                sessionMode ? previousMetrics.sessionCount : previousMetrics.max1RM
+            );
+            renderDiffBadge(
+                'kpi-weight-diff',
+                sessionMode ? currentMetrics.setCount : currentMetrics.maxWeight,
+                sessionMode ? previousMetrics.setCount : previousMetrics.maxWeight
+            );
+            renderDiffBadge('kpi-volume-diff', currentMetrics.totalVolume, previousMetrics.totalVolume);
+
+            const chartDetailData = workoutData.filter(d => {
+                const date = new Date(`${d.date}T00:00:00`);
+                return Number(d.reps) >= 0 &&
+                    matchesObjective(d) &&
+                    matchesFormat(d) &&
+                    (!notesFilter || String(d.notes || '').toLocaleLowerCase('fr').includes(notesFilter)) &&
+                    matchesSelection(d) &&
+                    date >= selectedComparison.range.currentStart &&
+                    date <= selectedComparison.range.currentEnd;
+            });
+            renderCharts(currentPeriodData, mode, chartDetailData);
+            renderComparativeTable(mode, periodComparisons);
+        }
+
+        function renderDiffBadge(elementId, current, previous) {
+            const el = document.getElementById(elementId);
+            if (!previous || previous === 0) {
+                el.textContent = "N/A";
+                el.className = "text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400";
+                return;
+            }
+
+            const diff = ((current - previous) / previous) * 100;
+            const formatted = (diff >= 0 ? "+" : "") + diff.toFixed(1) + "%";
+
+            if (diff > 0) {
+                el.textContent = formatted;
+                el.className = "text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+            } else if (diff < 0) {
+                el.textContent = formatted;
+                el.className = "text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20";
+            } else {
+                el.textContent = "0.0%";
+                el.className = "text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400";
+            }
+        }
+
+        function renderComparativeTable(mode, periodComparisons) {
+            const thead = document.getElementById('comparative-table-head');
+            const tbody = document.getElementById('comparative-table-body');
+            const calcDiff = (current, previous) => previous
+                ? ((current - previous) / previous * 100).toFixed(1)
+                : null;
+            const formatMetric = (key, value, metrics) => {
+                if (key === 'totalVolume') return `${value.toLocaleString()} kg`;
+                if (['max1RM', 'min1RM', 'maxWeight', 'minWeight'].includes(key)) {
+                    const date = metrics[`${key}Date`];
+                    return `<span>${value} kg</span>${date ? `<span class="block text-[10px] text-slate-500 font-sans">Le ${formatDateForDisplay(date)}</span>` : ''}`;
+                }
+                return value.toLocaleString();
+            };
+            const metrics = mode === 'session'
+                ? [
+                    { key: 'totalVolume', label: 'Volume total accumulé' },
+                    { key: 'setCount', label: 'Séries avec au moins 1 répétition' },
+                    { key: 'sessionCount', label: 'Séances effectuées' }
+                ]
+                : [
+                    { key: 'max1RM', label: 'Meilleur 1RM estimé (Epley)' },
+                    { key: 'min1RM', label: '1RM estimé le plus bas (top sets)' },
+                    { key: 'maxWeight', label: 'Charge max soulevée' },
+                    { key: 'minWeight', label: 'Charge minimale soulevée (top sets)' },
+                    { key: 'totalVolume', label: 'Volume total accumulé' },
+                    { key: 'setCount', label: 'Séries totales effectuées' }
+                ];
+
+            thead.innerHTML = `
+                <tr>
+                    <th rowspan="2" class="py-2.5 px-4 align-middle">Métrique</th>
+                    ${analyticsPeriods.map(period => `<th colspan="2" class="py-2.5 px-4 text-center border-l border-slate-800">${period.label}</th>`).join('')}
+                </tr>
+                <tr>
+                    ${analyticsPeriods.map(() => `
+                        <th class="py-2 px-3 text-center border-l border-slate-800/60">Valeur</th>
+                        <th class="py-2 px-3 text-center">Évolution %</th>
+                    `).join('')}
+                </tr>
+            `;
+
+            tbody.innerHTML = metrics.map(metric => `
+                <tr class="hover:bg-slate-800/30">
+                    <td class="py-2.5 px-4 font-semibold text-slate-200">${metric.label}</td>
+                    ${periodComparisons.map(comparison => {
+                        const current = comparison.currentMetrics[metric.key];
+                        const previous = comparison.previousMetrics[metric.key];
+                        const difference = calcDiff(current, previous);
+                        if (difference === null) {
+                            return `
+                                <td class="py-2.5 px-3 text-center font-mono text-emerald-400 font-bold border-l border-slate-800/60">${formatMetric(metric.key, current, comparison.currentMetrics)}</td>
+                                <td class="py-2.5 px-3 text-center font-mono text-slate-500">--</td>
+                            `;
+                        }
+                        const numericDifference = Number(difference);
+                        const colorClass = numericDifference > 0
+                            ? 'text-emerald-400'
+                            : numericDifference < 0 ? 'text-rose-400' : 'text-slate-400';
+                        const prefix = numericDifference > 0 ? '+' : '';
+                        return `
+                            <td class="py-2.5 px-3 text-center font-mono text-emerald-400 font-bold border-l border-slate-800/60">${formatMetric(metric.key, current, comparison.currentMetrics)}</td>
+                            <td class="py-2.5 px-3 text-center font-mono"><span class="font-bold ${colorClass}">${prefix}${difference}%</span></td>
+                        `;
+                    }).join('')}
+                </tr>
+            `).join('');
+        }
+
+        // Rendu des Graphiques via Chart.js
+        function renderCharts(data, mode, detailData = data) {
+            const sessionMode = mode === 'session';
+            const datesMap = {};
+            const detailSetsByDate = {};
+            detailData.forEach(d => {
+                if (!detailSetsByDate[d.date]) detailSetsByDate[d.date] = [];
+                detailSetsByDate[d.date].push(d);
+            });
+            data.slice().sort((a, b) => a.date.localeCompare(b.date)).forEach(d => {
+                if (!datesMap[d.date]) {
+                    datesMap[d.date] = {
+                        maxWeight: 0,
+                        max1RM: 0,
+                        repsAtMaxWeight: 0,
+                        totalVolume: 0,
+                        setCount: 0,
+                        sets: detailSetsByDate[d.date] || []
+                    };
+                }
+
+                const day = datesMap[d.date];
+                const weight = Number(d.weight) || 0;
+                const reps = Number(d.reps) || 0;
+                day.totalVolume += weight * reps;
+                day.setCount += 1;
+
+                if (!sessionMode) {
+                    const est1RM = calculate1RM(weight, reps);
+                    if (weight > day.maxWeight) {
+                        day.maxWeight = weight;
+                        day.max1RM = est1RM;
+                        day.repsAtMaxWeight = reps;
+                    } else if (weight === day.maxWeight) {
+                        day.max1RM = Math.max(day.max1RM, est1RM);
+                        day.repsAtMaxWeight += reps;
+                    }
+                }
+            });
+
+            const dateKeys = Object.keys(datesMap).sort();
+            chartDataModel = { mode, datesMap, dateKeys };
+            chartWindowStart = Math.max(0, dateKeys.length - chartPointLimit);
+            showAllChartPoints = false;
+            renderChartWindow();
+        }
+
+        function setChartWindow(start) {
+            chartWindowStart = Number(start) || 0;
+            renderChartWindow();
+        }
+
+        function toggleChartPointLimit() {
+            showAllChartPoints = !showAllChartPoints;
+            renderChartWindow();
+        }
+
+        function renderChartWindow() {
+            if (!chartDataModel) return;
+
+            const { mode, datesMap, dateKeys } = chartDataModel;
+            const sessionMode = mode === 'session';
+            const maxStart = Math.max(0, dateKeys.length - chartPointLimit);
+            chartWindowStart = Math.min(maxStart, Math.max(0, chartWindowStart));
+            const visibleDateKeys = showAllChartPoints
+                ? dateKeys
+                : dateKeys.slice(chartWindowStart, chartWindowStart + chartPointLimit);
+            const labels = visibleDateKeys.map(formatDateForDisplay);
+            const maxWeights = visibleDateKeys.map(date => datesMap[date].maxWeight);
+            const max1RMs = visibleDateKeys.map(date => datesMap[date].max1RM);
+            const repsAtMaxWeights = visibleDateKeys.map(date => datesMap[date].repsAtMaxWeight);
+            const volumes = visibleDateKeys.map(date => datesMap[date].totalVolume);
+            const setCounts = visibleDateKeys.map(date => datesMap[date].setCount);
+
+            const controls = document.getElementById('chart-window-controls');
+            const slider = document.getElementById('chart-window-slider');
+            const windowLabel = document.getElementById('chart-window-label');
+            const toggleButton = document.getElementById('chart-window-toggle');
+            controls.classList.toggle('hidden', dateKeys.length <= chartPointLimit);
+            slider.max = String(maxStart);
+            slider.value = String(chartWindowStart);
+            slider.disabled = showAllChartPoints || maxStart === 0;
+            toggleButton.textContent = showAllChartPoints ? `Afficher ${chartPointLimit} dates` : 'Tout afficher';
+            toggleButton.setAttribute('aria-pressed', String(showAllChartPoints));
+            if (showAllChartPoints) {
+                windowLabel.textContent = `Toutes les dates affichées (${dateKeys.length})`;
+            } else if (visibleDateKeys.length) {
+                windowLabel.textContent = `Dates ${chartWindowStart + 1}–${chartWindowStart + visibleDateKeys.length} sur ${dateKeys.length} : ${formatDateForDisplay(visibleDateKeys[0])} – ${formatDateForDisplay(visibleDateKeys[visibleDateKeys.length - 1])}`;
+            } else {
+                windowLabel.textContent = 'Aucune date à afficher';
+            }
+
+            if (progressionChartInstance) progressionChartInstance.destroy();
+            if (volumeChartInstance) volumeChartInstance.destroy();
+
+            const progressionDatasets = sessionMode
+                ? [{
+                    label: 'Volume total (kg)',
+                    data: volumes,
+                    borderColor: '#10B981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4
+                }]
+                : [
+                    {
+                        label: '1RM Estimé (kg)',
+                        data: max1RMs,
+                        borderColor: '#6366F1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4
+                    },
+                    {
+                        label: 'Charge Max (kg)',
+                        data: maxWeights,
+                        borderColor: '#10B981',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        tension: 0.3,
+                        pointRadius: 3
+                    }
+                ];
+            const repCountLabels = {
+                id: 'rep-count-labels',
+                afterDatasetsDraw(chart) {
+                    if (sessionMode) return;
+                    const ctx = chart.ctx;
+                    const points = chart.getDatasetMeta(1).data;
+                    ctx.save();
+                    ctx.fillStyle = '#10B981';
+                    ctx.font = '10px sans-serif';
+                    ctx.textBaseline = 'middle';
+                    points.forEach((point, index) => {
+                        if (point.skip) return;
+                        const { x, y } = point.getProps(['x', 'y'], true);
+                        const nearLeftEdge = x - 30 < chart.chartArea.left;
+                        const nearRightEdge = x + 30 > chart.chartArea.right;
+                        ctx.textAlign = nearLeftEdge ? 'left' : nearRightEdge ? 'right' : 'center';
+                        const labelX = nearLeftEdge ? x + 8 : nearRightEdge ? x - 8 : x;
+                        ctx.fillText(`${maxWeights[index]} kg`, labelX, y - 26);
+                        ctx.fillText(`${repsAtMaxWeights[index]} reps`, labelX, y - 12);
+                    });
+                    ctx.restore();
+                }
+            };
+
+            const ctxProg = document.getElementById('chart-progression').getContext('2d');
+            progressionChartInstance = new Chart(ctxProg, {
+                type: 'line',
+                data: { labels, datasets: progressionDatasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: { top: 28, right: 36, bottom: 28, left: 36 } },
+                    plugins: {
+                        legend: { position: 'top', labels: { boxWidth: 12 } },
+                        tooltip: {
+                            callbacks: {
+                                afterBody: items => {
+                                    const dataPoint = items.find(item =>
+                                        item.datasetIndex === (sessionMode ? 0 : 1)
+                                    );
+                                    if (!dataPoint) return [];
+                                    const date = visibleDateKeys[dataPoint.dataIndex];
+                                    return datesMap[date].sets
+                                        .slice()
+                                        .sort((a, b) =>
+                                            (Number(a.exerciseOrder) || 0) - (Number(b.exerciseOrder) || 0) ||
+                                            (Number(a.setNumber) || 0) - (Number(b.setNumber) || 0)
+                                        )
+                                        .map((set, index) => {
+                                            const setNumber = Number(set.setNumber) > 0 ? Number(set.setNumber) : index + 1;
+                                            const rpe = String(set.rpe ?? '').trim() || 'non renseigné';
+                                            const detail = `Série ${setNumber} — ${set.weight} kg, ${set.reps} rép, RPE ${rpe}`;
+                                            const exerciseOrder = Number(set.exerciseOrder) > 0 ? Number(set.exerciseOrder) : '—';
+                                            return sessionMode ? `Ex. ${exerciseOrder} — ${set.exercise} : ${detail}` : detail;
+                                        });
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: '#1e293b' } },
+                        y: { grid: { color: '#1e293b' } }
+                    }
+                },
+                plugins: [repCountLabels]
+            });
+
+            const ctxVol = document.getElementById('chart-volume').getContext('2d');
+            volumeChartInstance = new Chart(ctxVol, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: sessionMode ? 'Séries' : 'Volume Total (kg)',
+                        data: sessionMode ? setCounts : volumes,
+                        backgroundColor: '#10B981',
+                        borderRadius: 6,
+                        hoverBackgroundColor: '#00FF66'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { grid: { color: '#1e293b' } }
+                    }
+                }
+            });
+        }
+
+        function updateProgress(percent, status) {
+            const value = Math.max(0, Math.min(100, percent));
+            const overlay = document.getElementById('progress-overlay');
+            document.getElementById('progress-percent').textContent = `${value.toFixed(2).padStart(5, '0')}%`;
+            document.getElementById('progress-fill').style.width = `${value}%`;
+            overlay.querySelector('[role="progressbar"]').setAttribute('aria-valuenow', value.toFixed(2));
+            document.getElementById('progress-status').textContent = status;
+        }
+
+        function showProgress(title, status) {
+            clearTimeout(progressHideTimer);
+            const overlay = document.getElementById('progress-overlay');
+            const fill = document.getElementById('progress-fill');
+            fill.className = "absolute inset-y-0 left-0 rounded-full bg-emerald-500 transition-[width] duration-200";
+            document.getElementById('progress-status').className = "mt-3 text-xs text-slate-400";
+            document.getElementById('progress-title').textContent = title;
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+            overlay.setAttribute('aria-hidden', 'false');
+            updateProgress(0, status);
+        }
+
+        function finishProgress(status) {
+            updateProgress(100, status);
+            progressHideTimer = setTimeout(hideProgress, 700);
+        }
+
+        function failProgress(status) {
+            const fill = document.getElementById('progress-fill');
+            fill.classList.remove('bg-emerald-500');
+            fill.classList.add('bg-rose-500');
+            document.getElementById('progress-status').className = "mt-3 text-xs text-rose-300";
+            document.getElementById('progress-status').textContent = status;
+            progressHideTimer = setTimeout(hideProgress, 1800);
+        }
+
+        function hideProgress() {
+            const overlay = document.getElementById('progress-overlay');
+            overlay.classList.add('hidden');
+            overlay.classList.remove('flex');
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+
+        function downloadFileWithProgress(filename, contentFactory, mimeType, successMessage) {
+            showProgress("Exportation en cours", "Préparation du fichier...");
+            requestAnimationFrame(() => {
+                updateProgress(20, "Préparation des données...");
+                setTimeout(() => {
+                    updateProgress(65, "Création du fichier...");
+                    setTimeout(() => {
+                        let downloadUrl = null;
+                        try {
+                            const file = new Blob([contentFactory()], { type: mimeType });
+                            downloadUrl = URL.createObjectURL(file);
+                            const downloadAnchor = document.createElement('a');
+                            downloadAnchor.href = downloadUrl;
+                            downloadAnchor.download = filename;
+                            document.body.appendChild(downloadAnchor);
+                            downloadAnchor.click();
+                            downloadAnchor.remove();
+                            setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+                            finishProgress("Téléchargement lancé.");
+                            showToast(successMessage);
+                        } catch (error) {
+                            if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+                            failProgress("Échec de l'exportation.");
+                            showToast("Erreur lors de l'export du fichier", "error");
+                        }
+                    }, 120);
+                }, 120);
+            });
+        }
+
+        function getExportTimestamp() {
+            const now = new Date();
+            const pad = value => String(value).padStart(2, '0');
+            return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+        }
+
+        // Export JSON
+        function exportDataJSON() {
+            const filename = `irontracker_export_${getExportTimestamp()}.json`;
+            downloadFileWithProgress(
+                filename,
+                () => JSON.stringify(workoutData.map(stripCsvImportMarker), null, 2),
+                "application/json;charset=utf-8",
+                "Fichier JSON exporté !"
+            );
+        }
+
+        // Export CSV
+        function exportDataCSV() {
+            if (!workoutData.length) {
+                showToast("Aucune donnée à exporter", "info");
+                return;
+            }
+
+            const filename = `irontracker_export_${getExportTimestamp()}.csv`;
+            downloadFileWithProgress(filename, () => {
+                const headers = ["Date", "Ville", "Séance", "Objectif", "Format", "N°_Exercice", "Exercice", "Serie", "Reps", "Charge_kg", "RPE", "Repos_sec", "Remarques"];
+                const rows = workoutData.map(d => [
+                    d.date,
+                    `"${(d.city || '').replace(/"/g, '""')}"`,
+                    `"${d.type}"`,
+                    `"${String(d.objective || '').replace(/"/g, '""')}"`,
+                    `"${String(d.format || '').replace(/"/g, '""')}"`,
+                    d.exerciseOrder || 1,
+                    `"${d.exercise}"`,
+                    d.setNumber,
+                    d.reps,
+                    d.weight,
+                    `"${String(d.rpe ?? '').replace(/"/g, '""')}"`,
+                    d.rest,
+                    `"${(d.notes || '').replace(/"/g, '""')}"`
+                ]);
+                return [headers.join(","), ...rows.map(row => row.join(","))].join("\n");
+            }, "text/csv;charset=utf-8", "Fichier CSV exporté !");
+        }
+
+        function parseCsvDocument(content) {
+            const firstLine = String(content).split(/\r?\n/, 1)[0] || '';
+            const delimiterCounts = { ',': 0, ';': 0, '\t': 0 };
+            let inQuotes = false;
+            for (let i = 0; i < firstLine.length; i++) {
+                if (firstLine[i] === '"') {
+                    if (inQuotes && firstLine[i + 1] === '"') i++;
+                    else inQuotes = !inQuotes;
+                } else if (!inQuotes && Object.prototype.hasOwnProperty.call(delimiterCounts, firstLine[i])) {
+                    delimiterCounts[firstLine[i]]++;
+                }
+            }
+
+            const delimiter = Object.keys(delimiterCounts).reduce((best, candidate) =>
+                delimiterCounts[candidate] > delimiterCounts[best] ? candidate : best, ','
+            );
+            const rows = [];
+            let row = [];
+            let field = '';
+            inQuotes = false;
+
+            for (let i = 0; i < content.length; i++) {
+                const character = content[i];
+                if (character === '"') {
+                    if (inQuotes && content[i + 1] === '"') {
+                        field += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (character === delimiter && !inQuotes) {
+                    row.push(field.trim());
+                    field = '';
+                } else if ((character === '\n' || character === '\r') && !inQuotes) {
+                    if (character === '\r' && content[i + 1] === '\n') i++;
+                    row.push(field.trim());
+                    if (row.some(value => value !== '')) rows.push(row);
+                    row = [];
+                    field = '';
+                } else {
+                    field += character;
+                }
+            }
+
+            row.push(field.trim());
+            if (row.some(value => value !== '')) rows.push(row);
+            return rows;
+        }
+
+        function normalizeCsvHeader(header) {
+            return String(header)
+                .replace(/^\uFEFF/, '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim();
+        }
+
+        function findCsvColumn(headers, aliases) {
+            const normalizedHeaders = headers.map(normalizeCsvHeader);
+            for (const alias of aliases) {
+                const index = normalizedHeaders.indexOf(normalizeCsvHeader(alias));
+                if (index >= 0) return index;
+            }
+            return -1;
+        }
+
+        function normalizeImportedDate(value) {
+            const text = String(value || '').trim();
+            let year;
+            let month;
+            let day;
+            let match = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T].*)?$/);
+
+            if (match) {
+                year = Number(match[1]);
+                month = Number(match[2]);
+                day = Number(match[3]);
+            } else {
+                match = text.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{4})$/);
+                if (!match) return null;
+                day = Number(match[1]);
+                month = Number(match[2]);
+                year = Number(match[3]);
+            }
+
+            const parsedDate = new Date(Date.UTC(year, month - 1, day));
+            if (parsedDate.getUTCFullYear() !== year || parsedDate.getUTCMonth() !== month - 1 || parsedDate.getUTCDate() !== day) {
+                return null;
+            }
+            return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+
+        function parseImportedNumber(value, fallback = 0) {
+            const normalized = String(value === undefined || value === null ? '' : value)
+                .trim()
+                .replace(/\s/g, '')
+                .replace(',', '.');
+            if (!normalized) return fallback;
+            const number = Number(normalized);
+            return Number.isFinite(number) ? number : fallback;
+        }
+
+        // Importer un fichier CSV ou JSON
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            showProgress("Importation en cours", `Lecture de ${file.name}...`);
+            reader.onprogress = function(progressEvent) {
+                if (progressEvent.lengthComputable && progressEvent.total > 0) {
+                    const percent = Math.min(80, (progressEvent.loaded / progressEvent.total) * 80);
+                    updateProgress(percent, `Lecture du fichier... ${percent.toFixed(2)}%`);
+                }
+            };
+            reader.onerror = function() {
+                failProgress("Impossible de lire le fichier.");
+                showToast("Erreur lors de la lecture du fichier", "error");
+            };
+            reader.onabort = function() {
+                failProgress("Importation annulée.");
+                showToast("Importation annulée", "info");
+            };
+            reader.onload = function(e) {
+                const content = e.target.result;
+                try {
+                    updateProgress(88, "Analyse du fichier...");
+                    const fileName = file.name.toLowerCase();
+                    if (fileName.endsWith('.json')) {
+                        const parsed = JSON.parse(content);
+                        if (Array.isArray(parsed)) {
+                            updateProgress(95, "Enregistrement des données...");
+                            workoutData = markDemoEntries(normalizeExerciseOrders(filterDemoEntries(parsed.map(stripCsvImportMarker))));
+                            saveData();
+                            renderTable();
+                            populateExerciseDropdowns();
+                            showToast("Données JSON importées avec succès !");
+                            finishProgress("Importation terminée.");
+                        } else {
+                            failProgress("Le fichier JSON n'a pas le format attendu.");
+                            showToast("Le fichier JSON ne contient pas une liste de séries", "error");
+                        }
+                    } else if (fileName.endsWith('.csv')) {
+                        const rows = parseCsvDocument(content);
+                        if (rows.length < 2) {
+                            failProgress("Aucune série à importer.");
+                            showToast("Le fichier CSV ne contient aucune série", "error");
+                            return;
+                        }
+
+                        const headers = rows[0];
+                        const dateIndex = findCsvColumn(headers, ['Date']);
+                        const cityIndex = findCsvColumn(headers, ['Ville', 'Ville de la salle', 'City']);
+                        const typeIndex = findCsvColumn(headers, ['Type', 'Séance', 'Session']);
+                        const exerciseOrderIndex = findCsvColumn(headers, ['N°_Exercice', 'N° Exercice', 'N° Ex', 'Ordre exercice', 'Exercise order']);
+                        const exerciseIndex = findCsvColumn(headers, ['Exercice', 'Exercise', 'Nom exercice']);
+                        const setNumberIndex = findCsvColumn(headers, ['Serie', 'N° Série', 'Set', 'Set number']);
+                        const weightIndex = findCsvColumn(headers, ['Charge_kg', 'Charge (kg)', 'Poids kg', 'Weight kg', 'Charge']);
+                        const repsIndex = findCsvColumn(headers, ['Reps', 'Répétitions', 'Nombre de répétitions']);
+                        const rpeIndex = findCsvColumn(headers, ['RPE', 'Effort rating', 'Perceived exertion']);
+                        const restIndex = findCsvColumn(headers, ['Repos_sec', 'Repos (sec)', 'Repos', 'Rest']);
+                        const notesIndex = findCsvColumn(headers, ['Remarques', 'Notes', 'Note']);
+                        const objectiveIndex = findCsvColumn(headers, ['Objectif', 'Objective']);
+                        const formatIndex = findCsvColumn(headers, ['Format']);
+                        const indexOr = (index, fallback) => index >= 0 ? index : fallback;
+                        const dateColumn = indexOr(dateIndex, 0);
+                        const cityColumn = cityIndex;
+                        const typeColumn = indexOr(typeIndex, cityIndex >= 0 ? 2 : 1);
+                        const exerciseOrderColumn = exerciseOrderIndex;
+                        const exerciseColumn = indexOr(exerciseIndex, cityIndex >= 0
+                            ? (exerciseOrderIndex >= 0 ? 4 : 3)
+                            : (exerciseOrderIndex >= 0 ? 3 : 2));
+                        const setNumberColumn = indexOr(setNumberIndex, exerciseColumn + 1);
+                        const weightColumn = indexOr(weightIndex, setNumberColumn + 1);
+                        const repsColumn = indexOr(repsIndex, weightColumn + 1);
+                        const restColumn = indexOr(restIndex, repsColumn + 1);
+                        const notesColumn = indexOr(notesIndex, restColumn + 1);
+                        const newEntries = [];
+                        let invalidDateRows = 0;
+                        for (let i = 1; i < rows.length; i++) {
+                            const cols = [...rows[i]];
+                            if (cols.length > headers.length && weightColumn >= 0) {
+                                const extraColumns = cols.length - headers.length;
+                                const mergedWeight = cols.slice(weightColumn, weightColumn + extraColumns + 1).join(',');
+                                if (/^-?\d+(?:,\d+)+$/.test(mergedWeight)) {
+                                    cols.splice(weightColumn, extraColumns + 1, mergedWeight);
+                                }
+                            }
+
+                            const date = normalizeImportedDate(cols[dateColumn]);
+                            if (!date) {
+                                invalidDateRows++;
+                                continue;
+                            }
+
+                            newEntries.push({
+                                id: Date.now() + i,
+                                date,
+                                city: cityColumn >= 0 ? cols[cityColumn] || '' : '',
+                                type: cols[typeColumn] || 'Autre',
+                                exerciseOrder: exerciseOrderColumn >= 0 ? parseInt(cols[exerciseOrderColumn], 10) : undefined,
+                                exercise: cols[exerciseColumn] || '',
+                                setNumber: parseInt(cols[setNumberColumn], 10) || 1,
+                                weight: parseImportedNumber(cols[weightColumn]),
+                                reps: parseInt(parseImportedNumber(cols[repsColumn]), 10) || 0,
+                                rpe: rpeIndex >= 0 ? cols[rpeIndex] || '' : '',
+                                rest: parseInt(parseImportedNumber(cols[restColumn]), 10) || 0,
+                                notes: cols[notesColumn] || '',
+                                objective: objectiveIndex >= 0 ? cols[objectiveIndex] || '' : '',
+                                format: formatIndex >= 0 ? cols[formatIndex] || '' : ''
+                            });
+                        }
+                        if (newEntries.length) {
+                            updateProgress(95, "Enregistrement des données...");
+                            workoutData.forEach(entry => delete entry.isLastCsvImport);
+                            newEntries.forEach(entry => entry.isLastCsvImport = true);
+                            workoutData = markDemoEntries(normalizeExerciseOrders(filterDemoEntries([...workoutData, ...newEntries])));
+                            saveData();
+                            renderTable();
+                            populateExerciseDropdowns();
+                            showToast(`${newEntries.length} séries importées depuis le CSV !${invalidDateRows ? ` ${invalidDateRows} ligne(s) ignorée(s) : date invalide.` : ''}`, invalidDateRows ? 'info' : 'success');
+                            finishProgress(invalidDateRows ? "Importation terminée avec des lignes ignorées." : "Importation terminée.");
+                        } else {
+                            failProgress("Aucune série valide n'a été trouvée.");
+                            showToast("Aucune série importée : vérifie les dates et les en-têtes du CSV", "error");
+                        }
+                    } else {
+                        failProgress("Format de fichier non pris en charge.");
+                        showToast("Format de fichier non pris en charge", "error");
+                    }
+                } catch(err) {
+                    failProgress("Le fichier n'a pas pu être traité.");
+                    showToast("Erreur lors de l'import du fichier", "error");
+                }
+            };
+            reader.onloadend = function() {
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // Notification Toast
+        function showToast(message, type = "success") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+            const undoButton = document.getElementById('toast-undo');
+
+            clearTimeout(toastHideTimer);
+            toastMsg.textContent = message;
+            if (!pendingUndoDelete) undoButton.classList.add('hidden');
+
+            if (type === "success") {
+                toast.className = "fixed bottom-5 right-5 bg-emerald-500 text-slate-950 px-4 py-3 rounded-xl shadow-2xl font-bold text-xs flex items-center space-x-2 transform translate-y-0 opacity-100 transition-all duration-300 z-50";
+                toastIcon.className = "fa-solid fa-circle-check text-base";
+            } else if (type === "info") {
+                toast.className = "fixed bottom-5 right-5 bg-indigo-500 text-white px-4 py-3 rounded-xl shadow-2xl font-bold text-xs flex items-center space-x-2 transform translate-y-0 opacity-100 transition-all duration-300 z-50";
+                toastIcon.className = "fa-solid fa-circle-info text-base";
+            } else {
+                toast.className = "fixed bottom-5 right-5 bg-rose-500 text-white px-4 py-3 rounded-xl shadow-2xl font-bold text-xs flex items-center space-x-2 transform translate-y-0 opacity-100 transition-all duration-300 z-50";
+                toastIcon.className = "fa-solid fa-triangle-exclamation text-base";
+            }
+
+            if (!pendingUndoDelete) toastHideTimer = setTimeout(hideToast, 3000);
+        }
+
+        function showDeleteUndoToast() {
+            const undoButton = document.getElementById('toast-undo');
+            clearTimeout(undoDeleteTimer);
+            undoButton.classList.remove('hidden');
+            showToast("Série supprimée", "info");
+            undoDeleteTimer = setTimeout(() => {
+                pendingUndoDelete = null;
+                undoButton.classList.add('hidden');
+                hideToast();
+            }, 5000);
+        }
+
+        function hideToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.add('translate-y-20', 'opacity-0');
+            toast.classList.remove('translate-y-0', 'opacity-100');
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>
