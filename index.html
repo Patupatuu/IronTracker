@@ -124,8 +124,8 @@
     </section>
 
     <!-- Barre de Navigation Supérieure -->
-    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-lg">
-        <div class="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+    <header class="relative min-h-10 bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-lg">
+        <div id="app-header-content" class="max-w-[1800px] mx-auto px-4 pr-12 sm:px-6 sm:pr-12 lg:px-8 lg:pr-12 py-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
                     <i class="fa-solid fa-dumbbell text-slate-950"></i>
@@ -179,6 +179,9 @@
                 </div>
             </div>
         </div>
+        <button id="app-header-toggle" type="button" onclick="toggleAppHeader()" aria-controls="app-header-content" aria-expanded="true" aria-label="Masquer l’en-tête" title="Masquer l’en-tête" class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-slate-700 bg-slate-950/90 p-2 text-slate-300 shadow hover:border-emerald-500 hover:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <i id="app-header-toggle-icon" class="fa-solid fa-chevron-up text-xs"></i>
+        </button>
     </header>
 
     <!-- Conteneur Principal -->
@@ -934,6 +937,21 @@
             { id: 210, date: getRelativeDate(2), type: "Push", exercise: "Développé couché", setNumber: 1, weight: 90, reps: 8, rest: 90, notes: "Séance lourde" },
             { id: 212, date: getRelativeDate(2), type: "Push", exercise: "Développé couché", setNumber: 3, weight: 95, reps: 4, rest: 150, notes: "Formidable !" }
         ];
+
+        function toggleAppHeader() {
+            const content = document.getElementById('app-header-content');
+            const button = document.getElementById('app-header-toggle');
+            const icon = document.getElementById('app-header-toggle-icon');
+            const expanded = button.getAttribute('aria-expanded') === 'true';
+            const nextExpanded = !expanded;
+
+            content.classList.toggle('hidden', !nextExpanded);
+            button.setAttribute('aria-expanded', String(nextExpanded));
+            button.setAttribute('aria-label', nextExpanded ? "Masquer l’en-tête" : "Afficher l’en-tête");
+            button.title = nextExpanded ? "Masquer l’en-tête" : "Afficher l’en-tête";
+            icon.classList.toggle('fa-chevron-up', nextExpanded);
+            icon.classList.toggle('fa-chevron-down', !nextExpanded);
+        }
 
         function initializeAppInterface() {
             // Définir la date du jour sur le formulaire
