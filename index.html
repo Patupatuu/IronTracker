@@ -672,6 +672,9 @@
         let activeUserId = null;
         let appInitialized = false;
         let isHydratingCloud = false;
+        let passwordRecoveryPending =
+            new URLSearchParams(window.location.search).get('type') === 'recovery' ||
+            new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
         let cloudSyncTimer = null;
         let cloudSaveQueue = Promise.resolve();
         let appInitializationPromise = null;
@@ -860,6 +863,7 @@
         }
 
         function showPasswordUpdateForm() {
+            passwordRecoveryPending = true;
             document.getElementById('auth-gate').classList.remove('hidden');
             document.getElementById('auth-form').classList.add('hidden');
             document.getElementById('password-update-form').classList.remove('hidden');
@@ -897,6 +901,10 @@
         }
 
         async function initializeAuthenticatedApp(user) {
+            if (passwordRecoveryPending) {
+                showPasswordUpdateForm();
+                return;
+            }
             if (activeUserId === user.id && appInitialized) return;
             if (appInitializationPromise && appInitializationUserId === user.id) return appInitializationPromise;
 
@@ -910,6 +918,10 @@
                         .eq('user_id', user.id)
                         .maybeSingle();
                     if (error) throw error;
+                    if (passwordRecoveryPending) {
+                        showPasswordUpdateForm();
+                        return;
+                    }
 
                     if (data) {
                         const payload = data.payload;
@@ -1098,7 +1110,15 @@
                     const { data, error } = await supabaseClient.auth.updateUser({ password });
                     if (error) throw error;
                     if (!data.user) throw new Error('La mise à jour du compte n’a pas abouti.');
-                    await initializeAuthenticatedApp(data.user);
+                    passwordRecoveryPending = false;
+                    if (window.location.search || window.location.hash) {
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    }
+                    if (activeUserId === data.user.id && appInitialized) {
+                        document.getElementById('auth-gate').classList.add('hidden');
+                    } else {
+                        await initializeAuthenticatedApp(data.user);
+                    }
                 } catch (error) {
                     status.textContent = error.message || 'Impossible de modifier le mot de passe.';
                     status.className = 'min-h-5 text-center text-sm text-rose-300';
@@ -1146,12 +1166,12 @@
             }
 
             supabaseClient.auth.onAuthStateChange((event, session) => {
+                if (event === 'PASSWORD_RECOVERY' && session) {
+                    showPasswordUpdateForm();
+                    return;
+                }
                 setTimeout(() => {
-                    if (event === 'PASSWORD_RECOVERY' && session) {
-                        showPasswordUpdateForm();
-                        return;
-                    }
-                    handleAuthSession(session);
+                    if (!passwordRecoveryPending) handleAuthSession(session);
                 }, 0);
             });
 
@@ -1161,6 +1181,10 @@
                 return;
             }
             if (data.session) {
+                if (passwordRecoveryPending) {
+                    showPasswordUpdateForm();
+                    return;
+                }
                 try {
                     await initializeAuthenticatedApp(data.session.user);
                 } catch (initializationError) {
