@@ -2165,13 +2165,22 @@
             filtered.sort((a, b) => {
                 let valA = a[currentSortField];
                 let valB = b[currentSortField];
+                let comparison;
                 
                 if (typeof valA === 'string' || typeof valB === 'string') {
                     valA = String(valA || '');
                     valB = String(valB || '');
-                    return currentSortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                    comparison = currentSortOrder === 'asc'
+                        ? valA.localeCompare(valB)
+                        : valB.localeCompare(valA);
+                } else {
+                    comparison = currentSortOrder === 'asc' ? valA - valB : valB - valA;
                 }
-                return currentSortOrder === 'asc' ? valA - valB : valB - valA;
+                if (comparison || currentSortField !== 'date') return comparison;
+
+                const sessionComparison = String(a.type || '').localeCompare(String(b.type || ''), 'fr');
+                if (sessionComparison) return sessionComparison;
+                return (Number(a.exerciseOrder) || 0) - (Number(b.exerciseOrder) || 0);
             });
             return filtered;
         }
@@ -2303,7 +2312,7 @@
                 const isNewExerciseGroup = previousItem && (
                     previousItem.date !== item.date ||
                     previousItem.type !== item.type ||
-                    previousItem.exercise !== item.exercise
+                    (Number(previousItem.exerciseOrder) || 0) !== (Number(item.exerciseOrder) || 0)
                 );
                 const separatorClass = isNewExerciseGroup ? 'border-t border-slate-800/60' : '';
                 const itemId = String(item.id);
@@ -2819,9 +2828,9 @@
                         label: '1RM Estimé (kg)',
                         data: max1RMs,
                         borderColor: '#6366F1',
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        backgroundColor: 'transparent',
                         borderWidth: 2,
-                        fill: true,
+                        fill: false,
                         tension: 0.3,
                         pointRadius: 4
                     },
@@ -2859,6 +2868,48 @@
                     ctx.restore();
                 }
             };
+            const progressionTrendArea = {
+                id: 'progression-trend-area',
+                beforeDatasetsDraw(chart) {
+                    if (sessionMode) return;
+                    const datasetIndex = 0;
+                    const points = chart.getDatasetMeta(datasetIndex).data;
+                    const values = chart.data.datasets[datasetIndex].data;
+                    if (points.length < 2) return;
+
+                    const baseline = chart.scales.y.getPixelForValue(0);
+                    if (!Number.isFinite(baseline)) return;
+                    const { ctx } = chart;
+                    ctx.save();
+                    for (let index = 1; index < points.length; index++) {
+                        const startPoint = points[index - 1];
+                        const endPoint = points[index];
+                        if (startPoint.skip || endPoint.skip) continue;
+
+                        const start = startPoint.getProps(['x', 'y', 'cp2x', 'cp2y'], true);
+                        const end = endPoint.getProps(['x', 'y', 'cp1x', 'cp1y'], true);
+                        const isGrowth = Number(values[index]) >= Number(values[index - 1]);
+                        ctx.beginPath();
+                        ctx.moveTo(start.x, baseline);
+                        ctx.lineTo(start.x, start.y);
+                        ctx.bezierCurveTo(
+                            Number.isFinite(start.cp2x) ? start.cp2x : start.x,
+                            Number.isFinite(start.cp2y) ? start.cp2y : start.y,
+                            Number.isFinite(end.cp1x) ? end.cp1x : end.x,
+                            Number.isFinite(end.cp1y) ? end.cp1y : end.y,
+                            end.x,
+                            end.y
+                        );
+                        ctx.lineTo(end.x, baseline);
+                        ctx.closePath();
+                        ctx.fillStyle = isGrowth
+                            ? 'rgba(16, 185, 129, 0.18)'
+                            : 'rgba(239, 68, 68, 0.18)';
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+            };
 
             const ctxProg = document.getElementById('chart-progression').getContext('2d');
             progressionChartInstance = new Chart(ctxProg, {
@@ -2884,13 +2935,17 @@
                                             (Number(a.exerciseOrder) || 0) - (Number(b.exerciseOrder) || 0) ||
                                             (Number(a.setNumber) || 0) - (Number(b.setNumber) || 0)
                                         )
-                                        .map((set, index) => {
+                                        .reduce((details, set, index) => {
                                             const setNumber = Number(set.setNumber) > 0 ? Number(set.setNumber) : index + 1;
                                             const rpe = String(set.rpe ?? '').trim() || 'non renseigné';
                                             const detail = `Série ${setNumber} — ${set.weight} kg, ${set.reps} rép, RPE ${rpe}`;
                                             const exerciseOrder = Number(set.exerciseOrder) > 0 ? Number(set.exerciseOrder) : '—';
-                                            return sessionMode ? `Ex. ${exerciseOrder} — ${set.exercise} : ${detail}` : detail;
-                                        });
+                                            details.push(
+                                                sessionMode ? `Ex. ${exerciseOrder} — ${set.exercise} : ${detail}` : detail,
+                                                `Remarque : ${String(set.notes ?? '').trim() || 'aucune'}`
+                                            );
+                                            return details;
+                                        }, []);
                                 }
                             }
                         }
@@ -2900,7 +2955,7 @@
                         y: { grid: { color: '#1e293b' } }
                     }
                 },
-                plugins: [repCountLabels]
+                plugins: [repCountLabels, progressionTrendArea]
             });
 
             const ctxVol = document.getElementById('chart-volume').getContext('2d');
