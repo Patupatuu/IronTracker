@@ -300,6 +300,38 @@
                             <i class="fa-solid fa-trash-can"></i> Supprimer le dernier import
                         </button>
                     </div>
+                    <div class="space-y-2 rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span id="selected-entry-count" class="mr-auto text-xs font-semibold text-slate-300">0 ligne sélectionnée</span>
+                            <button id="select-filtered-entries" type="button" onclick="selectAllFilteredEntries()" class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Tout sélectionner</button>
+                            <button id="clear-selected-entries" type="button" onclick="clearSelectedEntries()" disabled class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Tout désélectionner</button>
+                            <button id="delete-selected-entries" type="button" onclick="deleteSelectedEntries()" disabled class="rounded-lg border border-rose-800/60 bg-rose-950/50 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-900/60 disabled:cursor-not-allowed disabled:opacity-40">Supprimer la sélection</button>
+                        </div>
+                        <div id="bulk-edit-panel" class="hidden space-y-2 border-t border-slate-800 pt-2">
+                            <div class="flex flex-col gap-2 sm:flex-row">
+                                <label for="bulk-edit-column" class="self-center text-xs text-slate-400">Corriger une colonne :</label>
+                                <select id="bulk-edit-column" onchange="updateBulkEditControl()" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none sm:w-44">
+                                    <option value="">Choisir une colonne…</option>
+                                    <option value="date">Date</option>
+                                    <option value="city">Ville</option>
+                                    <option value="type">Séance</option>
+                                    <option value="objective">Objectif</option>
+                                    <option value="format">Format</option>
+                                    <option value="exerciseOrder">N° Ex</option>
+                                    <option value="exercise">Exercice</option>
+                                    <option value="setNumber">N° Série</option>
+                                    <option value="reps">Répétitions</option>
+                                    <option value="weight">Charge (kg)</option>
+                                    <option value="rpe">RPE</option>
+                                    <option value="rest">Repos (sec)</option>
+                                    <option value="notes">Remarques</option>
+                                </select>
+                                <input id="bulk-edit-value" type="text" disabled placeholder="Nouvelle valeur" class="w-full min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-white focus:border-emerald-500 focus:outline-none disabled:opacity-50">
+                                <button id="apply-bulk-edit" type="button" onclick="applyBulkEdit()" disabled class="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40">Appliquer</button>
+                            </div>
+                            <p id="bulk-edit-status" class="min-h-4 text-xs text-rose-300" role="status" aria-live="polite"></p>
+                        </div>
+                    </div>
 
                     <!-- Filtres du Tableau -->
                     <div class="flex w-full flex-col gap-2" aria-label="Filtres de recherche combinés">
@@ -380,6 +412,9 @@
                     <table class="w-full min-w-[1150px] text-left text-xs text-slate-300 border-collapse">
                         <thead class="bg-slate-950 text-slate-400 uppercase font-semibold sticky top-0 border-b border-slate-800 z-10">
                             <tr>
+                                <th class="py-3 px-2 text-center">
+                                    <input id="select-all-table-page" type="checkbox" onchange="toggleCurrentPageSelection(this.checked)" aria-label="Sélectionner toutes les lignes de cette page" class="h-4 w-4 accent-emerald-500">
+                                </th>
                                 <th class="py-3 px-4 cursor-pointer hover:text-white" onclick="sortTable('date')">Date <i class="fa-solid fa-sort text-slate-600"></i></th>
                                 <th class="py-3 px-4">Ville</th>
                                 <th class="py-3 px-4">Séance</th>
@@ -707,7 +742,7 @@
     <div id="toast" class="fixed bottom-5 right-5 bg-emerald-500 text-slate-950 px-4 py-3 rounded-xl shadow-2xl font-bold text-xs flex items-center space-x-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
         <i id="toast-icon" class="fa-solid fa-circle-check text-base"></i>
         <span id="toast-message">Notification</span>
-        <button id="toast-undo" type="button" onclick="undoLastDeletion()" class="hidden underline underline-offset-2 hover:opacity-80">Annuler</button>
+        <button id="toast-undo" type="button" onclick="undoLastAction()" class="hidden underline underline-offset-2 hover:opacity-80">Annuler</button>
     </div>
 
     <!-- Script Application Local -->
@@ -742,6 +777,10 @@
         let toastHideTimer = null;
         let undoDeleteTimer = null;
         let pendingUndoDelete = null;
+        let pendingUndoBulkEdit = null;
+        const selectedEntryIds = new Set();
+        let currentFilteredEntryIds = [];
+        let currentPageEntryIds = [];
         let customExercises = [];
         let removedExercises = [];
         let customFormats = [];
@@ -1334,16 +1373,23 @@
 
         function normalizeExerciseOrders(entries) {
             const ordersBySession = new Map();
+            const exerciseOrdersBySession = new Map();
             const maxOrderBySession = new Map();
 
             entries.forEach(entry => {
                 if (entry.type === 'Legs') entry.type = 'Leg';
                 const sessionKey = JSON.stringify([entry.date, entry.type]);
                 if (!ordersBySession.has(sessionKey)) ordersBySession.set(sessionKey, new Map());
+                if (!exerciseOrdersBySession.has(sessionKey)) exerciseOrdersBySession.set(sessionKey, new Map());
                 const exerciseOrders = ordersBySession.get(sessionKey);
                 const order = parseInt(entry.exerciseOrder, 10);
-                if (Number.isInteger(order) && order > 0 && !exerciseOrders.has(entry.exercise)) {
-                    exerciseOrders.set(entry.exercise, order);
+                if (Number.isInteger(order) && order > 0) {
+                    const groupKey = JSON.stringify([entry.exercise, order]);
+                    if (!exerciseOrders.has(groupKey)) exerciseOrders.set(groupKey, order);
+                    if (!exerciseOrdersBySession.get(sessionKey).has(entry.exercise)) {
+                        exerciseOrdersBySession.get(sessionKey).set(entry.exercise, new Set());
+                    }
+                    exerciseOrdersBySession.get(sessionKey).get(entry.exercise).add(order);
                     maxOrderBySession.set(sessionKey, Math.max(maxOrderBySession.get(sessionKey) || 0, order));
                 }
             });
@@ -1351,15 +1397,56 @@
             entries.forEach(entry => {
                 const sessionKey = JSON.stringify([entry.date, entry.type]);
                 const exerciseOrders = ordersBySession.get(sessionKey);
-                if (!exerciseOrders.has(entry.exercise)) {
+                const order = parseInt(entry.exerciseOrder, 10);
+                if (Number.isInteger(order) && order > 0) {
+                    entry.exerciseOrder = exerciseOrders.get(JSON.stringify([entry.exercise, order]));
+                    return;
+                }
+                const existingOrders = exerciseOrdersBySession.get(sessionKey).get(entry.exercise);
+                if (existingOrders && existingOrders.size === 1) {
+                    entry.exerciseOrder = [...existingOrders][0];
+                    return;
+                }
+                const groupKey = JSON.stringify([entry.exercise, null]);
+                if (!exerciseOrders.has(groupKey)) {
                     const nextOrder = (maxOrderBySession.get(sessionKey) || 0) + 1;
-                    exerciseOrders.set(entry.exercise, nextOrder);
+                    exerciseOrders.set(groupKey, nextOrder);
                     maxOrderBySession.set(sessionKey, nextOrder);
                 }
-                entry.exerciseOrder = exerciseOrders.get(entry.exercise);
+                entry.exerciseOrder = exerciseOrders.get(groupKey);
             });
 
             return entries;
+        }
+
+        function offsetImportedExerciseOrders(existingEntries, importedEntries) {
+            const maxOrderByDate = new Map();
+            existingEntries.forEach(entry => {
+                const order = parseInt(entry.exerciseOrder, 10);
+                if (!Number.isInteger(order) || order < 1) return;
+                const date = String(entry.date || '');
+                maxOrderByDate.set(date, Math.max(maxOrderByDate.get(date) || 0, order));
+            });
+
+            const firstImportedOrderByDate = new Map();
+            importedEntries.forEach(entry => {
+                const order = parseInt(entry.exerciseOrder, 10);
+                const date = String(entry.date || '');
+                if (Number.isInteger(order) && order > 0 && !firstImportedOrderByDate.has(date)) {
+                    firstImportedOrderByDate.set(date, order);
+                }
+            });
+
+            const offsetsByDate = new Map();
+            firstImportedOrderByDate.forEach((firstOrder, date) => {
+                const lastExistingOrder = maxOrderByDate.get(date) || 0;
+                if (lastExistingOrder > 0) offsetsByDate.set(date, lastExistingOrder + 1 - firstOrder);
+            });
+            importedEntries.forEach(entry => {
+                const order = parseInt(entry.exerciseOrder, 10);
+                const offset = offsetsByDate.get(String(entry.date || ''));
+                if (Number.isInteger(order) && Number.isInteger(offset)) entry.exerciseOrder = order + offset;
+            });
         }
 
         function markDemoEntries(entries) {
@@ -1717,27 +1804,139 @@
             const deletedIndex = workoutData.findIndex(item => item.id === id);
             if (deletedIndex < 0) return;
             const [deletedEntry] = workoutData.splice(deletedIndex, 1);
-            pendingUndoDelete = { entry: deletedEntry, index: deletedIndex };
+            pendingUndoBulkEdit = null;
+            pendingUndoDelete = { entries: [{ entry: deletedEntry, index: deletedIndex }] };
             saveData();
             renderTable();
             populateExerciseDropdowns();
-            showDeleteUndoToast();
+            showDeleteUndoToast(1);
+        }
+
+        function deleteSelectedEntries() {
+            const selectedEntries = workoutData
+                .map((entry, index) => ({ entry, index }))
+                .filter(item => selectedEntryIds.has(String(item.entry.id)));
+            if (!selectedEntries.length) return;
+            const selectedCount = selectedEntries.length;
+            if (!confirm(`Supprimer ${selectedCount} ligne${selectedCount > 1 ? 's' : ''} sélectionnée${selectedCount > 1 ? 's' : ''} ?`)) return;
+
+            pendingUndoBulkEdit = null;
+            pendingUndoDelete = { entries: selectedEntries };
+            const deletedIds = new Set(selectedEntries.map(item => String(item.entry.id)));
+            workoutData = workoutData.filter(item => !deletedIds.has(String(item.id)));
+            selectedEntries.forEach(item => selectedEntryIds.delete(String(item.entry.id)));
+            saveData();
+            renderTable();
+            populateExerciseDropdowns();
+            showDeleteUndoToast(selectedEntries.length);
+        }
+
+        function getBulkEditValue(field, rawValue) {
+            const text = String(rawValue).trim();
+            if (field === 'date') {
+                const normalizedDate = normalizeImportedDate(text);
+                if (!normalizedDate) throw new Error('Saisis une date valide au format JJ/MM/AAAA ou AAAA-MM-JJ.');
+                return normalizedDate;
+            }
+            if (['exerciseOrder', 'setNumber', 'reps', 'weight', 'rpe', 'rest'].includes(field)) {
+                if (!text && ['rpe', 'rest'].includes(field)) return '';
+                const value = parseImportedNumber(text, NaN);
+                if (!Number.isFinite(value)) throw new Error('Saisis une valeur numérique valide.');
+                if (field === 'exerciseOrder' && (!Number.isInteger(value) || value < 1)) {
+                    throw new Error('Le n° exercice doit être un entier supérieur à 0.');
+                }
+                if (field === 'setNumber' && (!Number.isInteger(value) || value < 1)) {
+                    throw new Error('Le n° série doit être un entier supérieur à 0.');
+                }
+                if (field === 'reps' && (!Number.isInteger(value) || value < 0)) {
+                    throw new Error('Les répétitions doivent être un entier positif ou nul.');
+                }
+                if (field === 'weight' && value < 0) throw new Error('La charge doit être positive ou nulle.');
+                if (field === 'weight' && Math.abs(value * 10 - Math.round(value * 10)) > Number.EPSILON * 10) {
+                    throw new Error('La charge doit comporter au maximum une décimale.');
+                }
+                if (field === 'rest' && (!Number.isInteger(value) || value < 0)) {
+                    throw new Error('Le repos doit être un nombre entier de secondes positif ou nul.');
+                }
+                if (field === 'rpe' && (value < 0 || value > 10)) throw new Error('Le RPE doit être compris entre 0 et 10.');
+                return value;
+            }
+            if (field === 'objective') return capitalizeObjective(text);
+            return text;
+        }
+
+        function applyBulkEdit() {
+            const field = document.getElementById('bulk-edit-column').value;
+            const status = document.getElementById('bulk-edit-status');
+            const selectedEntries = workoutData.filter(item => selectedEntryIds.has(String(item.id)));
+            if (!field || !selectedEntries.length) return;
+
+            try {
+                const value = getBulkEditValue(field, document.getElementById('bulk-edit-value').value);
+                if (field === 'format' && value && selectedEntries.some(item =>
+                    String(item.objective || '').trim().toLocaleLowerCase('fr') !== 'force'
+                )) {
+                    throw new Error('Le format ne peut être renseigné que pour des séries ayant l’objectif Force.');
+                }
+                const undoEntries = selectedEntries.map(entry => ({
+                    entry,
+                    previousValues: field === 'objective'
+                        ? { [field]: entry[field], format: entry.format }
+                        : { [field]: entry[field] }
+                }));
+                selectedEntries.forEach(item => {
+                    item[field] = value;
+                    if (field === 'objective' && String(value).toLocaleLowerCase('fr') !== 'force') item.format = '';
+                });
+                if (field === 'format' && value) rememberCustomFormat(value);
+                if (field === 'city' || field === 'date') updateEntryCityForDate();
+                pendingUndoDelete = null;
+                pendingUndoBulkEdit = { entries: undoEntries, field };
+                saveData();
+                renderTable();
+                populateExerciseDropdowns();
+                status.textContent = '';
+                showUndoActionToast(`Colonne corrigée pour ${selectedEntries.length} séries`);
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        function undoLastAction() {
+            if (pendingUndoBulkEdit) {
+                const { entries, field } = pendingUndoBulkEdit;
+                clearTimeout(undoDeleteTimer);
+                pendingUndoBulkEdit = null;
+                entries.forEach(({ entry, previousValues }) => {
+                    if (workoutData.includes(entry)) Object.assign(entry, previousValues);
+                });
+                if (field === 'city' || field === 'date') updateEntryCityForDate();
+                saveData();
+                renderTable();
+                populateExerciseDropdowns();
+                document.getElementById('toast-undo').classList.add('hidden');
+                showToast("Correction annulée", "info");
+                return;
+            }
+            undoLastDeletion();
         }
 
         function undoLastDeletion() {
             if (!pendingUndoDelete) return;
-            const { entry, index } = pendingUndoDelete;
-            if (workoutData.some(item => String(item.id) === String(entry.id))) {
+            const entries = pendingUndoDelete.entries;
+            if (entries.some(({ entry }) => workoutData.some(item => String(item.id) === String(entry.id)))) {
                 pendingUndoDelete = null;
                 clearTimeout(undoDeleteTimer);
                 document.getElementById('toast-undo').classList.add('hidden');
-                showToast("Impossible d'annuler : cette série existe déjà", "error");
+                showToast("Impossible d'annuler : au moins une série existe déjà", "error");
                 return;
             }
 
             clearTimeout(undoDeleteTimer);
             pendingUndoDelete = null;
-            workoutData.splice(Math.min(index, workoutData.length), 0, entry);
+            entries.sort((a, b) => a.index - b.index).forEach(({ entry, index }) => {
+                workoutData.splice(Math.min(index, workoutData.length), 0, entry);
+            });
             saveData();
             currentTablePage = 1;
             renderTable();
@@ -1873,17 +2072,24 @@
                 input.max = '10';
                 input.step = '1';
             }
-            if (field === 'exercise') input.setAttribute('list', 'exercise-list');
-            if (field === 'city') input.setAttribute('list', 'city-list');
-            if (field === 'type') input.setAttribute('list', 'session-list');
-            if (field === 'objective') input.setAttribute('list', 'objective-list');
-            if (field === 'format') input.setAttribute('list', 'format-list');
+            const suggestionList = getFieldSuggestionList(field);
+            if (suggestionList) input.setAttribute('list', suggestionList);
 
             input.value = originalValue;
             input.className = 'w-full min-w-16 rounded border border-emerald-500 bg-slate-950 px-1.5 py-1 text-xs text-white focus:outline-none';
             cell.replaceChildren(input);
             input.focus();
             if (input.type === 'text' || input.type === 'number') input.select();
+        }
+
+        function getFieldSuggestionList(field) {
+            return {
+                city: 'city-list',
+                type: 'session-list',
+                exercise: 'exercise-list',
+                objective: 'objective-list',
+                format: 'format-list'
+            }[field] || '';
 
             let committed = false;
             const commit = () => {
@@ -1913,9 +2119,7 @@
             });
         }
 
-        // Affichage paginé du tableau, avec édition à la demande
-        function renderTable() {
-            const tbody = document.getElementById('table-body');
+        function getFilteredWorkoutData() {
             const searchFilters = [1, 2, 3].map(index => ({
                 term: document.getElementById(`filter-search-${index}`).value.trim().toLocaleLowerCase('fr'),
                 column: document.getElementById(`filter-column-${index}`).value,
@@ -1949,7 +2153,6 @@
                 });
                 return matchesSearch;
             });
-
             filtered.sort((a, b) => {
                 let valA = a[currentSortField];
                 let valB = b[currentSortField];
@@ -1961,6 +2164,79 @@
                 }
                 return currentSortOrder === 'asc' ? valA - valB : valB - valA;
             });
+            return filtered;
+        }
+
+        function syncBulkSelectionControls() {
+            const selectedCount = selectedEntryIds.size;
+            const bulkEditPanel = document.getElementById('bulk-edit-panel');
+            bulkEditPanel.classList.toggle('hidden', selectedCount === 0);
+            if (selectedCount === 0) {
+                document.getElementById('bulk-edit-column').value = '';
+                document.getElementById('bulk-edit-value').value = '';
+                document.getElementById('bulk-edit-status').textContent = '';
+            }
+            document.getElementById('selected-entry-count').textContent =
+                `${selectedCount} ligne${selectedCount > 1 ? 's' : ''} sélectionnée${selectedCount > 1 ? 's' : ''}`;
+            document.getElementById('clear-selected-entries').disabled = selectedCount === 0;
+            document.getElementById('delete-selected-entries').disabled = selectedCount === 0;
+            document.getElementById('select-filtered-entries').disabled = currentFilteredEntryIds.length === 0;
+
+            const column = document.getElementById('bulk-edit-column').value;
+            document.getElementById('bulk-edit-value').disabled = !column || selectedCount === 0;
+            document.getElementById('apply-bulk-edit').disabled = !column || selectedCount === 0;
+
+            const pageCheckbox = document.getElementById('select-all-table-page');
+            const selectedOnPage = currentPageEntryIds.filter(id => selectedEntryIds.has(id)).length;
+            pageCheckbox.disabled = currentPageEntryIds.length === 0;
+            pageCheckbox.checked = currentPageEntryIds.length > 0 && selectedOnPage === currentPageEntryIds.length;
+            pageCheckbox.indeterminate = selectedOnPage > 0 && selectedOnPage < currentPageEntryIds.length;
+        }
+
+        function toggleEntrySelection(id, checked) {
+            if (checked) selectedEntryIds.add(id);
+            else selectedEntryIds.delete(id);
+            syncBulkSelectionControls();
+        }
+
+        function toggleCurrentPageSelection(checked) {
+            currentPageEntryIds.forEach(id => {
+                if (checked) selectedEntryIds.add(id);
+                else selectedEntryIds.delete(id);
+            });
+            renderTable();
+        }
+
+        function selectAllFilteredEntries() {
+            selectedEntryIds.clear();
+            currentFilteredEntryIds.forEach(id => selectedEntryIds.add(id));
+            renderTable();
+        }
+
+        function clearSelectedEntries() {
+            selectedEntryIds.clear();
+            renderTable();
+        }
+
+        function updateBulkEditControl() {
+            document.getElementById('bulk-edit-status').textContent = '';
+            const column = document.getElementById('bulk-edit-column').value;
+            const valueInput = document.getElementById('bulk-edit-value');
+            const suggestionList = getFieldSuggestionList(column);
+            if (suggestionList) valueInput.setAttribute('list', suggestionList);
+            else valueInput.removeAttribute('list');
+            valueInput.placeholder = suggestionList ? 'Choisir ou saisir une valeur' : 'Nouvelle valeur';
+            syncBulkSelectionControls();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            const filtered = getFilteredWorkoutData();
+            const existingIds = new Set(workoutData.map(item => String(item.id)));
+            selectedEntryIds.forEach(id => {
+                if (!existingIds.has(id)) selectedEntryIds.delete(id);
+            });
+            currentFilteredEntryIds = filtered.map(item => String(item.id));
 
             const dateBackgrounds = [
                 'bg-slate-800/40',
@@ -1991,6 +2267,8 @@
             document.getElementById('table-page-count').textContent = tablePageCount;
             const pageStart = (currentTablePage - 1) * tablePageSize;
             const pageItems = filtered.slice(pageStart, pageStart + tablePageSize);
+            currentPageEntryIds = pageItems.map(item => String(item.id));
+            syncBulkSelectionControls();
             document.getElementById('table-page-status').textContent = filtered.length
                 ? `Lignes ${pageStart + 1}–${Math.min(pageStart + tablePageSize, filtered.length)} sur ${filtered.length}`
                 : 'Aucune ligne';
@@ -2002,7 +2280,7 @@
             if (pageItems.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="14" class="py-8 text-center text-slate-500 italic">
+                        <td colspan="15" class="py-8 text-center text-slate-500 italic">
                             Aucune donnée trouvée. Ajoutez une série à l'aide du formulaire ci-dessus.
                         </td>
                     </tr>
@@ -2019,9 +2297,10 @@
                     previousItem.exercise !== item.exercise
                 );
                 const separatorClass = isNewExerciseGroup ? 'border-t border-slate-800/60' : '';
+                const itemId = String(item.id);
                 const cell = (field, value, classes = '', editable = true) => {
                     const editAttributes = editable
-                        ? `data-id="${escapeHtml(String(item.id))}" data-field="${field}" tabindex="0" title="Double-cliquer ou appuyer sur Entrée pour modifier"`
+                        ? `data-id="${escapeHtml(itemId)}" data-field="${field}" tabindex="0" title="Double-cliquer ou appuyer sur Entrée pour modifier"`
                         : '';
                     return `<td ${editAttributes} class="py-2 px-3 ${classes}">${escapeHtml(String(value ?? ''))}</td>`;
                 };
@@ -2029,6 +2308,9 @@
 
                 return `
                     <tr class="${rowClass} ${separatorClass}" title="${item.isDemo ? 'Donnée de démonstration' : ''}">
+                        <td class="py-2 px-2 text-center">
+                            <input type="checkbox" value="${escapeHtml(itemId)}" onchange="toggleEntrySelection(this.value, this.checked)" aria-label="Sélectionner la série ${escapeHtml(String(item.setNumber))}" class="h-4 w-4 accent-emerald-500"${selectedEntryIds.has(itemId) ? ' checked' : ''}>
+                        </td>
                         ${cell('date', formatDateForDisplay(item.date), 'font-mono')}
                         ${cell('city', item.city || '', 'min-w-[8rem]')}
                         ${cell('type', item.type, 'font-semibold')}
@@ -2040,16 +2322,17 @@
                         ${cell('reps', item.reps, 'text-right font-mono font-bold text-emerald-400')}
                         ${cell('weight', `${item.weight} kg`, 'text-right font-mono font-bold text-emerald-400')}
                         ${cell('rpe', item.rpe ?? '', 'text-center font-mono')}
-                        ${cell('rest', `${item.rest} s`, 'text-right font-mono text-slate-400')}
+                        ${cell('rest', item.rest === '' || item.rest === null || item.rest === undefined ? '' : `${item.rest} s`, 'text-right font-mono text-slate-400')}
                         ${cell('notes', item.notes || '', 'text-slate-400')}
                         <td class="py-2 px-3 text-center">
-                            <button data-delete-id="${escapeHtml(String(item.id))}" class="text-slate-600 hover:text-rose-400 p-1" title="Supprimer la série" aria-label="Supprimer la série">
+                            <button data-delete-id="${escapeHtml(itemId)}" class="text-slate-600 hover:text-rose-400 p-1" title="Supprimer la série" aria-label="Supprimer la série">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </td>
                     </tr>
                 `;
             }).join('');
+            syncBulkSelectionControls();
         }
 
         function getTypeBadgeClass(type) {
@@ -3407,7 +3690,9 @@
                 isLastCsvImport: true
             }));
             workoutData.forEach(entry => delete entry.isLastCsvImport);
-            workoutData = markDemoEntries(normalizeExerciseOrders(filterDemoEntries([...workoutData, ...importedEntries])));
+            const existingEntries = filterDemoEntries(workoutData);
+            offsetImportedExerciseOrders(existingEntries, importedEntries);
+            workoutData = markDemoEntries(normalizeExerciseOrders([...existingEntries, ...importedEntries]));
             currentTablePage = 1;
             saveData();
             renderTable();
@@ -3503,6 +3788,7 @@
                         const parsed = JSON.parse(content);
                         if (Array.isArray(parsed)) {
                             updateProgress(95, "Enregistrement des données...");
+                            selectedEntryIds.clear();
                             workoutData = markDemoEntries(normalizeExerciseOrders(filterDemoEntries(parsed.map(stripCsvImportMarker))));
                             saveData();
                             renderTable();
@@ -3587,7 +3873,9 @@
                             updateProgress(95, "Enregistrement des données...");
                             workoutData.forEach(entry => delete entry.isLastCsvImport);
                             newEntries.forEach(entry => entry.isLastCsvImport = true);
-                            workoutData = markDemoEntries(normalizeExerciseOrders(filterDemoEntries([...workoutData, ...newEntries])));
+                            const existingEntries = filterDemoEntries(workoutData);
+                            offsetImportedExerciseOrders(existingEntries, newEntries);
+                            workoutData = markDemoEntries(normalizeExerciseOrders([...existingEntries, ...newEntries]));
                             saveData();
                             renderTable();
                             populateExerciseDropdowns();
@@ -3621,7 +3909,7 @@
 
             clearTimeout(toastHideTimer);
             toastMsg.textContent = message;
-            if (!pendingUndoDelete) undoButton.classList.add('hidden');
+            if (!pendingUndoDelete && !pendingUndoBulkEdit) undoButton.classList.add('hidden');
 
             if (type === "success") {
                 toast.className = "fixed bottom-5 right-5 bg-emerald-500 text-slate-950 px-4 py-3 rounded-xl shadow-2xl font-bold text-xs flex items-center space-x-2 transform translate-y-0 opacity-100 transition-all duration-300 z-50";
@@ -3634,16 +3922,21 @@
                 toastIcon.className = "fa-solid fa-triangle-exclamation text-base";
             }
 
-            if (!pendingUndoDelete) toastHideTimer = setTimeout(hideToast, 3000);
+            if (!pendingUndoDelete && !pendingUndoBulkEdit) toastHideTimer = setTimeout(hideToast, 3000);
         }
 
-        function showDeleteUndoToast() {
+        function showDeleteUndoToast(deletedCount = 1) {
+            showUndoActionToast(deletedCount === 1 ? "Série supprimée" : `${deletedCount} séries supprimées`);
+        }
+
+        function showUndoActionToast(message) {
             const undoButton = document.getElementById('toast-undo');
             clearTimeout(undoDeleteTimer);
             undoButton.classList.remove('hidden');
-            showToast("Série supprimée", "info");
+            showToast(message, "info");
             undoDeleteTimer = setTimeout(() => {
                 pendingUndoDelete = null;
+                pendingUndoBulkEdit = null;
                 undoButton.classList.add('hidden');
                 hideToast();
             }, 5000);
