@@ -1714,11 +1714,20 @@
 
         function clearAllData() {
             if (confirm("Voulez-vous vraiment vider toutes vos séries ?")) {
+                if (!workoutData.length) {
+                    showToast("Aucune série à supprimer", "info");
+                    return;
+                }
+
+                pendingUndoBulkEdit = null;
+                pendingUndoDelete = {
+                    entries: workoutData.map((entry, index) => ({ entry, index }))
+                };
                 workoutData = [];
                 saveData();
                 renderTable();
                 populateExerciseDropdowns();
-                showToast("Toutes les séries ont été effacées", "info");
+                showUndoActionToast("Toutes les séries ont été effacées", 20000);
             }
         }
 
@@ -2078,18 +2087,6 @@
             input.value = originalValue;
             input.className = 'w-full min-w-16 rounded border border-emerald-500 bg-slate-950 px-1.5 py-1 text-xs text-white focus:outline-none';
             cell.replaceChildren(input);
-            input.focus();
-            if (input.type === 'text' || input.type === 'number') input.select();
-        }
-
-        function getFieldSuggestionList(field) {
-            return {
-                city: 'city-list',
-                type: 'session-list',
-                exercise: 'exercise-list',
-                objective: 'objective-list',
-                format: 'format-list'
-            }[field] || '';
 
             let committed = false;
             const commit = () => {
@@ -2111,12 +2108,24 @@
             input.addEventListener('keydown', event => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    input.blur();
+                    commit();
                 } else if (event.key === 'Escape') {
                     committed = true;
                     renderTable();
                 }
             });
+            input.focus();
+            if (input.type === 'text' || input.type === 'number') input.select();
+        }
+
+        function getFieldSuggestionList(field) {
+            return {
+                city: 'city-list',
+                type: 'session-list',
+                exercise: 'exercise-list',
+                objective: 'objective-list',
+                format: 'format-list'
+            }[field] || '';
         }
 
         function getFilteredWorkoutData() {
@@ -3929,7 +3938,7 @@
             showUndoActionToast(deletedCount === 1 ? "Série supprimée" : `${deletedCount} séries supprimées`);
         }
 
-        function showUndoActionToast(message) {
+        function showUndoActionToast(message, durationMs = 5000) {
             const undoButton = document.getElementById('toast-undo');
             clearTimeout(undoDeleteTimer);
             undoButton.classList.remove('hidden');
@@ -3939,7 +3948,7 @@
                 pendingUndoBulkEdit = null;
                 undoButton.classList.add('hidden');
                 hideToast();
-            }, 5000);
+            }, durationMs);
         }
 
         function hideToast() {
